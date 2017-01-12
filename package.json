@@ -1,0 +1,27 @@
+{
+  "name": "mail-sync",
+  "version": "1.0.0",
+  "description": "Realtime email sync via imap idle or noop fallback",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha"
+  },
+  "keywords": [
+    "imap",
+    "email",
+    "mail",
+    "sync",
+    "listener",
+    "push"
+  ],
+  "author": "gabe@fijiwebdesign.com",
+  "license": "ISC",
+  "dependencies": {
+    "async": "^2.1.4",
+    "debug": "^2.6.0",
+    "imap": "^0.8.19",
+    "mailparser": "^0.6.1",
+    "node-persist": "^2.0.7",
+    "rethinkdb": "^2.3.3"
+  }
+}
