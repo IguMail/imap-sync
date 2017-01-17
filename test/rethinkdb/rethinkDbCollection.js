@@ -1,4 +1,6 @@
 var storage = require('../../lib/rethinkdb/rethinkDbStorage')
+var promise = require('bluebird')
+var debug = require('debug')('test:rethinkDb:Collection')
 
 var config = {
   host: 'localhost',
@@ -7,61 +9,83 @@ var config = {
 }
 
 var Storage = new storage()
-var Collection
 
 Storage.connect(config, function(err) {
 	if (err) throw err
-  console.log('Connected', arguments)
+  debug('Connected')
 
-  Collection = Storage.Collection('users')
-
-  Collection.filter({ name: 'Gabe' }).run(function(err, result) {
-    if (err) {
-      createUser(function() {
-        insertUser(testFilter)
+  var Users = Storage.Collection('users')
+  Users.remove(function(err, result) {
+    err && debug('Error removing users:', err)
+    createUser(function() {
+      insertUser().then(function() {
+        testFilter().then(testPromise)
       })
-    } else {
-      result.toArray(function(err, models) {
-        console.log('Users', models)
-        if (!models.length) {
-          insertUser(testFilter)
-        } else {
-          testFilter()
-        }
-      })
-    }
+    })
   })
 })
 
 function createUser(callback) {
-  console.log('Creating users')
+  debug('Creating users')
 
-  Collection.create(function(err, result) {
+  var Users = Storage.Collection('users')
+  return Users.create(function(err, result) {
     if (err) throw err
-    console.log('result', result)
+    debug('createUser:result', result)
     callback(result)
   })
 }
 
 function insertUser(callback) {
-  Collection.insert({
-    name: 'Gabe',
-    age: 'irrelevant-now'
-  }).run(function(err, result) {
-  	if (err) throw err
-  	console.log('result', result)
-    callback(result)
-  })
+  debug('Inserting Users')
+  var Users = Storage.Collection('users')
+  var promises = []
+  for(var i = 0; i < 5; i++) {
+    promises.push(
+      Users.insert({
+        name: 'Gabe',
+        date: new Date(),
+        age: 'unknown'
+      }))
+  }
+
+  return promise.all(promises).then(function(result) {
+      debug('Users inserted', result)
+      callback && callback(result)
+    }).catch(function(err) {
+      throw err
+    })
 }
 
 function testFilter() {
-  console.log('testFilter')
-  Collection.filter({ name: 'Gabe' }).run(function(err, result) {
+  debug('testFilter')
+  var Users = Storage.Collection('users')
+  return Users.filter({ name: 'Gabe' })
+    .limit(3)
+    .run(function(err, result) {
 
-    result.toArray(function(err, result) {
-      if (err) throw err;
-      console.log('toArray:result', result);
+      result.toArray(function(err, result) {
+        if (err) throw err;
+        debug('testFilter:toArray:result', result)
+      })
+    })
+}
+
+function testPromise() {
+  debug('testPromise')
+  var Collection = Storage.Collection('users')
+  return Collection.filter({name: 'Gabe'})
+    .limit(3)
+    .then(function(result) {
+      return result.toArray(function(err, result) {
+        debug('testPromise:toArray:result', result)
+      })
+    })
+    .catch(function(result) {
+      debug('testPromise:catch', result)
+    })
+    .finally(function() {
+      debug('testPromise:finally')
       Storage.close()
     })
-  })
 }

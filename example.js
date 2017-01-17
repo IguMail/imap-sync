@@ -9,7 +9,6 @@ var dbConfig = {
 }
 var peerId = 'test'
 
-
 var Storage = new storage().connect(dbConfig, function() {
   var Auth = Storage.Model('auth')
     Auth.filter({ peerId: peerId }).load(
