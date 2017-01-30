@@ -2,6 +2,8 @@
 
 NodeJS Email Realtime Sync via IMAP.
 
+![status](https://codeship.com/projects/785aeff0-c8e6-0134-ebaf-3a0fd8dae151/status?branch=master)
+
 ### How it works ###
 
 * Mail-Sync connects to the IMAP account securely (via TLS)
