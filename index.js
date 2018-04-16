@@ -167,7 +167,7 @@ function imapSearch() {
   var self = this;
   var filter = [].concat(self.searchFilter);
   if (this.lastUid) {
-    filter.push(["UID", this.lastUid + ":*"]);
+    filter.push(["UID", this.lastUid + 1 + ":*"]);
   }
   debug("Filter", filter);
   this.imap.search(filter, function(err, uids) {

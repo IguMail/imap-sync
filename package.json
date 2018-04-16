@@ -5,29 +5,31 @@
   "main": "index.js",
   "scripts": {
     "test": "mocha",
-    "dev": "nodemon server.js"
+    "dev": "PORT=5000 nodemon server.js",
+    "dev:mqtt:server":
+      "DEBUG=mail* MQTT_HOST='mqtt://localhost:1883' nodemon mqtt/server/server.js",
+    "dev:mqtt:client":
+      "DEBUG=mail* MQTT_HOST='mqtt://localhost:1883' nodemon mqtt/client/client.js",
+    "debug:mqtt:server":
+      "DEBUG=mail* MQTT_HOST='mqtt://localhost:1883' nodemon -- --inspect mqtt/server/server.js",
+    "debug:mqtt:client":
+      "DEBUG=mail* MQTT_HOST='mqtt://localhost:1883' nodemon -- --inspect mqtt/client/client.js"
   },
-  "keywords": [
-    "imap",
-    "email",
-    "mail",
-    "sync",
-    "listener",
-    "push"
-  ],
+  "keywords": ["imap", "email", "mail", "sync", "listener", "push"],
   "author": "gabe@fijiwebdesign.com",
   "license": "ISC",
   "dependencies": {
     "async": "^2.1.4",
     "bluebird": "^3.4.7",
     "cookie-parser": "^1.4.3",
-    "debug": "^2.6.0",
+    "debug": "^3.1.0",
     "express": "^4.16.3",
     "express-session": "^1.15.6",
     "imap": "^0.8.19",
     "jsonwebtoken": "^8.2.1",
     "mailparser": "^0.6.1",
     "morgan": "^1.9.0",
+    "mqtt": "^2.17.0",
     "node-persist": "^2.0.7",
     "passport": "^0.4.0",
     "passport-google-oauth": "^1.0.0",

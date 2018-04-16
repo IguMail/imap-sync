@@ -1,37 +1,19 @@
 var MailSync = require("./index");
 var debug = require("debug")("mail-sync:mqtt");
+var mqtt = require("mqtt");
+var PromiseEmitter = require("./lib/PromiseEmitter");
+var imapConfig = require("./config/imap");
 
 var xoauth2 =
-  "dXNlcj1nYWJlQGZpaml3ZWJkZXNpZ24uY29tAWF1dGg9QmVhcmVyIHlhMjkuR2x1ZkJYQVV6OE43VWp0LTE1LU9tMEJJUXgxUktlYmJzYU9GUEtxMTdxRUQyZnU2Ujk2WFRDSVNVaHBncmhacHJHRUpyb0tFa3Blbnp2aURmcTdLWkhqZWhsZHVfNDl6dE5STldqS0ZIWDZXX1hmRzFzWVFZc3ZGR2h4cAEB";
+  "dXNlcj1nYWJlQGZpaml3ZWJkZXNpZ24uY29tAWF1dGg9QmVhcmVyIHlhMjkuR2x1ZkJRSzByd2JEbFFyc0FYQTFsb3hQbUN3WHhGLVNrNVlpNXZfUjM1RUpKVlNLSXBzNzFpZGdTN1ZBVTlqWF9MN3A3WVh1REtfY0tYNEN1dXF0clFqb1ZYWkk1U1I1bjlEQUVqdUg2ZmhfQURTQ1E5eXVLUkstalI3YgEB";
 
 startMail(xoauth2);
 
 function startMail(xoauth2) {
   debug("Authenticating: ", xoauth2);
   var mailSync = new MailSync({
-    xoauth2: xoauth2,
-    host: "imap.gmail.com",
-    port: 993, // imap port
-    tls: true,
-    tlsOptions: {
-      rejectUnauthorized: false
-    },
-    mailbox: "INBOX", // mailbox to monitor
-    searchFilter: ["ALL"], // the search filter being used after an IDLE notification has been retrieved
-    markSeen: false, // all fetched email willbe marked as seen and not fetched next time
-    fetchUnreadOnStart: true, // use it only if you want to get all unread email on lib start. Default is `false`,
-    autoFetch: true,
-    fetchLimit: 10,
-    fetchLimitInitial: 50,
-    fetchSort: "DESC",
-    uidsSort: "ASC",
-    mailParserOptions: {
-      streamAttachments: true
-    }, // options to be passed to mailParser lib.
-    attachments: false, // download attachments as they are encountered to the project directory
-    attachmentOptions: {
-      directory: "attachments/"
-    } // specify a download directory for attachments
+    ...imapConfig,
+    xoauth2
   });
 
   mailSync.start(); // start listening
@@ -45,7 +27,8 @@ function startMail(xoauth2) {
   });
 
   mailSync.on("disconnected", function() {
-    debug("imapDisconnected");
+    debug("imapDisconnected, restart");
+    mailSync.start();
   });
 
   mailSync.on("error", function(err) {
