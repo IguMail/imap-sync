@@ -3,37 +3,64 @@
  */
 const debug = require("debug")("mail-sync:mqtt:server");
 const mqtt = require("mqtt");
-const MQTTChannel = require("../lib/channel");
-const mqttClientLib = require("../lib/mqtt");
+const mqttTransport = require("../lib/mqtt");
+const crypto = require("crypto");
 
 const MQTT_HOST = process.env.MQTT_HOST || "mqtt://broker.hivemq.com";
 const MQTT_PORT = process.env.MQTT_PORT || 1883;
 const client = mqtt.connect(MQTT_HOST);
-var mqttClient = new mqttClientLib({ id: "server", client });
+var transport = new mqttTransport({ id: "server", client });
+var xOAuth2 = require("../../session").xOAuth2; // mocked
 
 debug("Connecting to host", MQTT_HOST);
 
 // MQTT Client Channels
 let channels = {};
 
-mqttClient.on("connect", () => {
+transport.on("connect", () => {
   debug("Server connected, subscribing...");
-  mqttClient.subscribe("auth", message => {
-    onAuth(message);
+  transport.subscribe("channel", message => {
+    const channel = transport.channel(message.id);
+    startAuth(channel);
   });
 });
 
-function onAuth({ id, xOAuth2 }) {
-  debug("Client auth", { id, xOAuth2 });
-  const channel = new MQTTChannel({
-    client: mqttClient,
-    id: id
+function startAuth(channel) {
+  debug("Start auth", channel.id);
+  const authToken = createToken();
+  channel.publish("auth", {
+    channel: "sha1(XOAUTH+authToken)",
+    authToken
   });
-  channel.xOAuth2 = xOAuth2;
-  channel.publish("connection", true);
-  channels[id] = channel;
+  secureChannel(authToken);
+}
 
+function secureChannel(authToken) {
+  debug("Create secure channel from authToken", authToken);
+
+  const sha1Token = sha1(xOAuth2 + authToken);
+
+  const channel = transport.channel(sha1Token);
+  channels[sha1Token] = channel;
+  channel.subscribe("sync", () => syncMail(channel));
+}
+
+function syncMail(channel) {
+  channel.publish("connection", {
+    state: "established"
+  });
   createMailSync(xOAuth2, channel);
+}
+
+function sha1(str) {
+  return crypto
+    .createHash("sha1")
+    .update(str)
+    .digest("hex");
+}
+
+function createToken() {
+  return sha1(Math.ceil(Math.random() * Math.pow(10, 20)).toString(16));
 }
 
 /**
@@ -84,7 +111,7 @@ function createMailSync(xoauth2, pubsub) {
   });
 
   mailSync.on("uids", function(uids) {
-    debug("uids", uids);
+    debug("received %s uids", uids.length);
     pubsub.publish("imap/uids", uids);
   });
 

@@ -1,39 +1,61 @@
 const mqtt = require("mqtt");
-const MQTTChannel = require("../lib/channel");
-const mqttClientLib = require("../lib/mqtt");
+const mqttTransport = require("../lib/mqtt");
 const PromiseEmitter = require("../../lib/PromiseEmitter");
+const crypto = require("crypto");
 const debug = require("debug")("mail-sync:client");
 
 var MQTT_HOST = process.env.MQTT_HOST || "mqtt://broker.hivemq.com";
 var client = mqtt.connect(MQTT_HOST);
 var promised = new PromiseEmitter(client);
-var mqttClient = new mqttClientLib({ id: "foo", client });
+var transport = new mqttTransport({ id: "foo", client });
 
 var mailState = "";
 var connected = false;
 var xOAuth2 = require("../../session").xOAuth2; // mocked
-var channel = new MQTTChannel({
-  client: mqttClient,
-  id: "foo"
+
+transport.on("connect", () => {
+  // wait for server
+  setTimeout(() => {
+    transport.publish("channel", {
+      id: transport.id
+    });
+    var channel = transport.channel(transport.id);
+    startAuth(channel);
+  }, 500);
 });
 
-mqttClient.on("connect", () => {
-  setTimeout(() => {
-    mqttClient.publish("auth", {
-      id: "foo",
-      xOAuth2
-    });
-    channel.subscribe("connection", () => {
-      debug("connected to mail broker");
-    });
-    channel.subscribe("imap/connected", message => {
-      debug("connected to mailbox", message);
-    });
-    channel.subscribe("imap/mail", message => {
-      debug("mail", message);
-    });
-    channel.subscribe("imap/uids", message => {
-      debug("uids", message);
-    });
-  }, 1000);
-});
+function startAuth(channel) {
+  debug("Start auth", channel.id);
+  channel.subscribe("auth", ({ authToken }) => {
+    secureChannel(authToken);
+  });
+}
+
+function secureChannel(authToken) {
+  debug("Create secure channel from authToken", authToken);
+
+  const sha1 = crypto
+    .createHash("sha1")
+    .update(xOAuth2 + authToken)
+    .digest("hex");
+
+  const channel = transport.channel(sha1);
+  onSecureChannel(channel);
+}
+
+function onSecureChannel(channel) {
+  debug("On secure channel");
+  channel.publish("sync");
+  channel.subscribe("connection", () => {
+    debug("connected to mail broker");
+  });
+  channel.subscribe("imap/connected", message => {
+    debug("connected to mailbox", message);
+  });
+  channel.subscribe("imap/mail", message => {
+    debug("mail", message);
+  });
+  channel.subscribe("imap/uids", message => {
+    debug("received %s uids", message.length);
+  });
+}

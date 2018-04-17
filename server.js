@@ -164,20 +164,3 @@ function buildXOAuth2Token(email, accessToken) {
   let authData = ["user=" + email, "auth=Bearer " + accessToken, "", ""];
   return Buffer.from(authData.join("\x01"), "utf-8").toString("base64");
 }
-
-function getXOauth2FromRefreshToken(email, refreshToken) {
-  xoauth2gen = xoauth2.createXOAuth2Generator({
-    user: "bucabay@gmail.com",
-    clientId: authConfig.google.clientId,
-    clientSecret: authConfig.google.clientSecret,
-    refreshToken
-  });
-
-  xoauth2gen.getToken(function(err, xOAuth2Token) {
-    if (err) {
-      return console.log(err);
-    }
-    console.log("AUTH XOAUTH2 " + xOAuth2Token);
-    return done(null, xOAuth2Token);
-  });
-}
