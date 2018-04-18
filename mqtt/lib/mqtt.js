@@ -15,8 +15,7 @@ function mqtt({ id, client }) {
       "Received message",
       topic,
       "len: " + message.length,
-      JSON.stringify(unserialized).substr(0, 200) +
-        (unserialized.length > 200 ? "..." : "")
+      this.stringifyDebugMessage(unserialized)
     );
     this.emit(topic, unserialized);
   });
@@ -78,8 +77,18 @@ mqtt.prototype.subscribe = function(topic, fn) {
 
 mqtt.prototype.publish = function(topic, message) {
   const serialized = this.serialize(message);
-  debug("pulish message", topic, serialized);
+  debug("pulish message", topic, this.stringifyDebugMessage(message));
   this.client.publish(topic, serialized);
+};
+
+mqtt.prototype.stringifyDebugMessage = function(message = "", length = 100) {
+  let str;
+  try {
+    str = JSON.stringify(message);
+  } catch (e) {
+    str = "";
+  }
+  return str.substr(0, length) + (str.length > length ? "..." : "");
 };
 
 module.exports = mqtt;

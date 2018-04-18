@@ -7,7 +7,10 @@ const debug = require("debug")("mail-sync:client");
 var MQTT_HOST = process.env.MQTT_HOST || "mqtt://broker.hivemq.com";
 var client = mqtt.connect(MQTT_HOST);
 var promised = new PromiseEmitter(client);
-var transport = new mqttTransport({ id: "foo", client });
+var transport = new mqttTransport({
+  id: "gabe@fijiwebdesign.com",
+  client
+});
 
 var mailState = "";
 var connected = false;
@@ -52,10 +55,16 @@ function onSecureChannel(channel) {
   channel.subscribe("imap/connected", message => {
     debug("connected to mailbox", message);
   });
-  channel.subscribe("imap/mail", message => {
-    debug("mail", message);
+  channel.subscribe("imap/mail", ({ mail, headers, attributes }) => {
+    debug("mail", mail, headers, attributes);
   });
   channel.subscribe("imap/uids", message => {
     debug("received %s uids", message.length);
+  });
+  channel.subscribe("imap/error", error => {
+    debug("Error occurred", error);
+    if (error.textCode === "AUTHENTICATIONFAILED") {
+      debug("Re-Authentication required");
+    }
   });
 }

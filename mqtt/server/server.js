@@ -78,7 +78,7 @@ function handleAppExit(options, err) {
   }
 }
 
-var MailSync = require("../../index");
+var MailSync = require("../../sync");
 var imapConfig = require("../../config/imap");
 
 function createMailSync(xoauth2, pubsub) {
@@ -118,18 +118,16 @@ function createMailSync(xoauth2, pubsub) {
   mailSync.on("mail", function(mail, seqno, attributes) {
     // do something with mail object including attachments
     debug("mail", attributes.uid, seqno, mail.subject, mail.date);
-    /*
     pubsub.publish("imap/mail", {
       mail,
       seqno,
       attributes
     });
-    */
   });
 
   mailSync.on("attachment", function(attachment) {
     debug("attachment", attachment.path);
-    //pubsub.publish("imap/attachment", attachment);
+    pubsub.publish("imap/attachment", attachment);
   });
 
   return mailSync;
