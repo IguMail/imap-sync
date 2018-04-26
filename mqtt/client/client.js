@@ -1,12 +1,10 @@
 const mqtt = require("mqtt");
 const mqttTransport = require("../lib/mqtt");
-const PromiseEmitter = require("../../lib/PromiseEmitter");
 const crypto = require("crypto");
 const debug = require("debug")("mail-sync:client");
 
 var MQTT_HOST = process.env.MQTT_HOST || "mqtt://broker.hivemq.com";
 var client = mqtt.connect(MQTT_HOST);
-var promised = new PromiseEmitter(client);
 var transport = new mqttTransport({
   id: "gabe@fijiwebdesign.com",
   client
@@ -57,6 +55,9 @@ function onSecureChannel(channel) {
   });
   channel.subscribe("imap/mail", ({ mail, headers, attributes }) => {
     debug("mail", mail, headers, attributes);
+  });
+  channel.subscribe("imap/attachment", ({ mail, attachment }) => {
+    debug("attachment", mail, attachment);
   });
   channel.subscribe("imap/uids", message => {
     debug("received %s uids", message.length);

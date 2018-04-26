@@ -85,7 +85,7 @@ function imapReady() {
 MailSync.prototype.fetch = function(uids) {
   var self = this;
   debug("Fetching mails by uids", uids);
-  async.each(uids, fetchByUid.bind(this), function(err) {
+  async.each(uids, this.fetchByUid.bind(this), function(err) {
     if (err) {
       self.emit("error", err);
     }
@@ -148,14 +148,29 @@ function imapSync() {
   });
 }
 
-function fetchByUid(uid, callback) {
+MailSync.prototype.fetchHeadersByUid = function(uid, callback) {
   var self = this;
   var f = self.imap.fetch(uid, {
-    bodies: "HEADER.FIELDS (FROM TO SUBJECT DATE MESSAGE-ID)",
+    bodies: "HEADER.FIELDS (FROM TO SUBJECT DATE MESSAGE-ID IN-REPLY-TO)",
     struct: true,
     markSeen: self.markSeen
   });
   debug("Fetch: ", uid);
+  self.onFetch(f, callback)
+}
+
+MailSync.prototype.fetchByUid = function(uid, callback) {
+  var self = this;
+  var f = self.imap.fetch(uid, {
+    bodies: "",
+    markSeen: self.markSeen
+  });
+  debug("Fetch: ", uid);
+  self.onFetch(f, callback)
+}
+
+MailSync.prototype.onFetch = function(f, callback) {
+  var self = this;
   f.on("message", (msg, seqno) => {
     var attributes = null;
     msg.on("body", function(stream, info) {
@@ -178,6 +193,7 @@ function parseMessage(stream, callback) {
   var parser = new MailParser(self.mailParserOptions);
   stream.pipe(parser);
   parser.on("end", function(mail) {
+    emitAttachments.call(self, mail, mail.attachments);
     if (
       !self.mailParserOptions.streamAttachments &&
       mail.attachments &&
@@ -190,9 +206,14 @@ function parseMessage(stream, callback) {
       callback(null, mail);
     }
   });
-  parser.on("attachment", function(attachment) {
-    self.emit("attachment", attachment);
-  });
+}
+
+function emitAttachments(mail, attachments) {
+  if (attachments) {
+    attachments.forEach(attachment => {
+      this.emit("attachment", { mail, attachment });
+    })
+  }
 }
 
 MailSync.prototype.saveAttachments = function(attachments, callback) {
@@ -211,7 +232,6 @@ MailSync.prototype.saveAttachments = function(attachments, callback) {
             attachment.path = path.resolve(
               self.attachmentOptions.directory + attachment.generatedFileName
             );
-            self.emit("attachment", attachment);
             done();
           }
         }
@@ -229,8 +249,15 @@ MailSync.prototype.searchByMessageId = function(messageId, cb) {
   var search = ["HEADER", "MESSAGE-ID", messageId];
   var filter = [];
   filter.push(search);
-  this.imap.search(filter, (err, uids) => {
+  var s = this.imap.search(filter, (err, uids) => {
     debug("searchByMessageId UIDS", uids);
-    cb(uids);
+    cb(err, uids);
   });
+  return s;
+};
+
+MailSync.prototype.fetchByMessageId = function(messageId, cb) {
+  var s = this.searchByMessageId(messageId, (err, uids => {
+    uids.forEach(uid => this.fetchByUid(ui, cb))
+  }));
 };

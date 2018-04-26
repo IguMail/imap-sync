@@ -34,6 +34,10 @@
     "passport": "^0.4.0",
     "passport-google-oauth": "^1.0.0",
     "rethinkdb": "^2.3.3",
-    "xoauth2": "^1.2.0"
+    "xoauth2": "^1.2.0",
+    "js-data": "^3.0.2",
+    "js-data-rethinkdb": "^3.0.0",
+    "openurl": "^1.1.1",
+    "rethinkdbdash": "^2.3.31"
   }
 }

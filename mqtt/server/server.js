@@ -1,16 +1,19 @@
 /**
- * Mail Server
+ * Mail Sync Server
  */
 const debug = require("debug")("mail-sync:mqtt:server");
 const mqtt = require("mqtt");
 const mqttTransport = require("../lib/mqtt");
 const crypto = require("crypto");
+const MailEventEmitter = require('events').EventEmitter;
+const store = require('../../store/store');
 
 const MQTT_HOST = process.env.MQTT_HOST || "mqtt://broker.hivemq.com";
 const MQTT_PORT = process.env.MQTT_PORT || 1883;
 const client = mqtt.connect(MQTT_HOST);
 var transport = new mqttTransport({ id: "server", client });
 var xOAuth2 = require("../../session").xOAuth2; // mocked
+var mailEmitter = new MailEventEmitter();
 
 debug("Connecting to host", MQTT_HOST);
 
@@ -42,7 +45,9 @@ function secureChannel(authToken) {
 
   const channel = transport.channel(sha1Token);
   channels[sha1Token] = channel;
-  channel.subscribe("sync", () => syncMail(channel));
+  channel.subscribe("sync", () => {
+    channel.sync = syncMail(channel)
+  });
 }
 
 function syncMail(channel) {
@@ -123,17 +128,45 @@ function createMailSync(xoauth2, pubsub) {
       seqno,
       attributes
     });
+    mailEmitter.emit("mail", {
+      mail,
+      seqno,
+      attributes
+    });
   });
 
-  mailSync.on("attachment", function(attachment) {
-    debug("attachment", attachment.path);
-    pubsub.publish("imap/attachment", attachment);
+  mailSync.on("attachment", function({ mail, attachment }) {
+    debug("attachment", mail, attachment);
+    var { messageId, subject, inReplyTo, from, to } = mail;
+    pubsub.publish("imap/attachment", { mail: {
+      messageId, subject, inReplyTo, from, to
+    }, attachment });
   });
 
   return mailSync;
 }
 
-module.exports = client;
+/**
+ * All Mail events
+ */
+mailEmitter.on('mail', ({ mail, seqno, attributes }) => {
+  const messageId = mail.messageId;
+  const deliveredTo = mail.headers['delivered-to'];
+  const receivedDate = mail.receivedDate;
+  const subject = mail.subject;
+  const hash = sha1(JSON.stringify(mail))
+  store.create('message', { 
+    messageId,
+    deliveredTo,
+    receivedDate,
+    subject,
+    mail,
+    hash,
+    attributes 
+  }).then((entry) => {
+    mailEmitter.emit('mail/saved', entry);
+  });
+})
 
 /**
  * Handle the different ways an application can shutdown
