@@ -15,11 +15,11 @@ const imapOptions = {
   fetchUnreadOnStart: false,
   autoFetch: false,
   mailParserOptions: {
-    streamAttachments: false
+    streamAttachments: false // set attachment.content to attachment buffer
   }, // options to be passed to mailParser lib.
-  attachments: true, // download attachments as they are encountered to the project directory
+  attachments: false, // download attachments as they are encountered to the project directory
   attachmentOptions: {
-    directory: "../storage/attachments/"
+    directory: "./storage/attachments/"
   } // specify a download directory for attachments
 }
 
@@ -34,19 +34,18 @@ mailSync.on("mailbox", function(mailbox) {
 
         debug('attachment stream', attachment.stream)
         const path = __dirname + '/../storage/attachments/' + getUniqueFilename(attachment)
-
-        pump(attachment.stream, 
-          concat(buf => debug('attachment buffer', buf)), 
-          (err) => {
-            console.log('pipe finished', err)
+        fs.writeFile(path, attachment.content, (err) => {
+          debug('Attachment save err', err)
         })
-         
-        setTimeout(() => attachment.stream.destroy(), 10000)
-        
       })
     }
   })
 });
+
+function getStreamContents(stream, cb, timeout = 60000) {
+  pump(stream, concat(buf => cb(null, buf)), (err) => cb(err))
+  setTimeout(() => stream && stream.destroy && stream.destroy(), timeout)
+}
 
 function getUniqueFilename(attachment) {
   return attachment.contentId + '-' + attachment.fileName

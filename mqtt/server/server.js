@@ -89,6 +89,10 @@ function createMailSync(xoauth2, pubsub) {
   debug("Authenticating: ", xoauth2);
   var mailSync = new MailSync({
     ...imapConfig,
+    mailParserOptions: {
+      streamAttachments: false // TODO: stream attachments
+    },
+    attachments: false, // never save attachments to file
     xoauth2
   });
 
@@ -150,8 +154,6 @@ if (process.env.CLEAN_STORE === 'true') {
   store.destroyAll("message");
   store.destroyAll("attachment");
 }
-store.destroyAll("message");
-  store.destroyAll("attachment");
 
 /**
  * All Mail events
@@ -167,72 +169,51 @@ mailEmitter.on('mail', ({ mail, seqno, attributes }) => {
     : [mail.headers['delivered-to']]
   const hash = generateMailHash(mail);
 
-  if (mail.attachments) {
-    const attachments = mail.attachments.map(attachment => {
-      return streamToBuffer(attachment.stream)
-        .then((buffer) => {
-          delete attachment.stream
-          return store.create('attachment', { 
-            messageId,
-            account: deliveredTo[0],
-            hash,
-            attributes,
-            attachment,
-            buffer: buffer
-          }).then((entry) => {
-            mailEmitter.emit('mail/attachment/saved', entry);
-            return entry
-          })
-          .catch(err => debug('Failed to save attachment', err))
-        })
-        .catch(err => debug('Could not get attachment buffer', err))
+  const storeMessage = (mail, attachments) => {
+    // use saved attachment entries without content
+    mail.attachments = attachments.map(attachment => {
+      delete(attachment.attachment.content)
+      return {
+        ...attachment.attachment,
+        id: attachment.id,
+        hash: attachment.hash
+      }
     })
-    Promise.all(attachments).then(res => debug('saved attachments', res))
-      .catch(err => debug('Failed to save an attachment', err))
-      .then(() => {
-        return store.create('message', { 
-          messageId,
-          deliveredTo: deliveredTo,
-          account: deliveredTo[0], // TODO: fix get from OAuth or user/pass
-          receivedDate,
-          subject,
-          mail,
-          hash,
-          attributes 
-        })
-          .then((entry) => {
-            mailEmitter.emit('mail/saved', entry);
-          })
-          .catch(err => debug('Failed to save message', err));
-      })
+    return store.create('message', { 
+      messageId,
+      deliveredTo: deliveredTo,
+      account: deliveredTo[0], // TODO: fix get from OAuth or user/pass
+      receivedDate,
+      subject,
+      mail,
+      hash,
+      attributes 
+    })
   }
-})
 
-function streamToBuffer(stream) {
-  var buf = [];
-  let resolver
-  debug('stream to buffer', stream)
-  stream.on('readable', function() {
-    debug('stream readable')
-    let data
-    while (data = this.read()) {
-      debug('stream read', data)
-      buf.push(data)
-    }
-  })
-  stream.on('data', data => {
-    debug('read data', data)
-    buf.push(data)
-  });
-  stream.on('end', () => {
-    debug('stream end buffer', buf)
-    resolver(Buffer.concat(buf))
-  })
-  stream.resume()
-  return new Promise(resolve => {
-    resolver = resolve
-  })
-}
+  const storeAttachment = attachment => {
+    return store.create('attachment', { 
+      messageId,
+      account: deliveredTo[0],
+      hash,
+      attributes,
+      attachment
+    })
+  }
+
+  const storeAttachments = (attachments = []) =>
+    attachments.map(attachment => 
+      storeAttachment(attachment).then(entry => {
+        mailEmitter.emit('attachment/saved', entry);
+        return entry
+      })
+    )
+
+  Promise.all(storeAttachments(mail.attachments))
+    .then((attachments) => storeMessage(mail, attachments))
+    .then((entry) => mailEmitter.emit('mail/saved', entry))
+    .catch(err => debug('Failed to save message', err))
+})
 
 function generateMailHash(mail) {
   const hash = sha1(JSON.stringify({

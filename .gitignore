@@ -1,3 +1,4 @@
 node_modules
 yarn-error.log
 rethinkdb_data
+storage

@@ -8,26 +8,20 @@ var authConfig = require("./config/auth"),
   refresh = require('passport-oauth2-refresh'),
   googleStrategy = require('./passport/google/strategy'),
   googleRoute = require('./passport/google/route'),
+  jwt = require("jsonwebtoken"),
   debug = require('debug')('mail-sync:server');
 
 const PORT = process.env.PORT || 3000;
 
-// Simple route middleware to ensure user is authenticated.
-function ensureAuthenticated(req, res, next) {
-  if (req.isAuthenticated()) {
-    return next();
-  }
-  res.redirect("/auth/google");
-}
-
 // Passport session setup.
 passport.serializeUser(function(user, done) {
-  // done(null, user.id);
+  debug('serializeUser', user)
   done(null, user);
 });
 
 passport.deserializeUser(function(obj, done) {
   // Users.findById(obj, done);
+  debug('deserializeUser', obj)
   done(null, obj);
 });
 
@@ -64,8 +58,20 @@ app.use(passport.session());
 // google passport routes
 app.use('/auth/google', googleRoute(passport, authConfig.google.scope, secret));
 
+// Simple route middleware to ensure user is authenticated.
+function ensureAuthenticated(req, res, next) {
+  if (req.isAuthenticated()) {
+    return next();
+  }
+  res.redirect("/auth/google");
+}
+
 app.get("/", ensureAuthenticated, function(req, res) {
+  var jwtToken = jwt.sign({ id: req.user.id }, secret, {
+    expiresIn: 86400 // expires in 24 hours
+  });
   res.json({
+    jwtToken,
     user: req.user,
     time: new Date()
   });

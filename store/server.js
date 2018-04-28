@@ -1,6 +1,7 @@
 const express = require("express");
 const store = require("./store");
 const openurl = require("openurl").open;
+const debug = require('debug')('mail-sync:store:server')
 
 const app = express();
 
@@ -50,7 +51,7 @@ function findAllMessagesFromReq(req, filter = {}) {
           resolve(query)
         })
         .catch(err => {
-          console.log("Error", err);
+          debug("Error", err);
         });
     } else {
       resolve(query)
@@ -74,18 +75,25 @@ function getMessageForListFormat(message) {
     deliveredTo: message.deliveredTo,
     date: message.mail.headers.date,
     receivedDate: message.mail.receivedDate,
-    snippet: getTextSnippet(message.mail.text || stripHtml(message.mail.html))
+    snippet: getTextSnippet(message.mail.text || stripHtml(message.mail.html)),
+    attachments: message.mail.attachments
   }
+}
+
+function streamAttachment(attachment, res) {
+  res.setHeader("content-type", attachment.contentType || 'application/octet-stream')
+  res.attachment(attachment.fileName)
+  res.send(attachment.content)
 }
 
 app.get("/messages", function(req, res) {
   findAllMessagesFromReq(req)
     .then(messages => {
-      console.log("messages", messages);
+      debug("messages", messages);
       res.json(getMessageListFormat(messages));
     })
     .catch(err => {
-      console.log("Error", err);
+      debug("Error", err);
       res.json(err);
     });
 });
@@ -94,12 +102,27 @@ app.get("/messages/:id", function(req, res) {
   store
     .find("message", req.params.id)
     .then(message => {
-      console.log("message", message);
+      debug("message", message);
       res.json(message);
     })
     .catch(err => {
-      console.log("Error", err);
+      debug("Error", err);
       res.json(err);
+    });
+});
+
+app.get("/attachments/download/:id", function(req, res) {
+  store
+    .find("attachment", req.params.id)
+    .then(attachment => {
+      debug("attachment", attachment);
+      streamAttachment(attachment.attachment, res)
+    })
+    .catch(err => {
+      debug("Error", err);
+      res.json({
+        err: err.message
+      });
     });
 });
 
@@ -112,11 +135,11 @@ app.get("/account/:account/messages", function(req, res) {
   }
   findAllMessagesFromReq(req, filter)
     .then(messages => {
-      console.log("messages", messages);
+      debug("messages", messages);
       res.json(getMessageListFormat(messages));
     })
     .catch(err => {
-      console.log("Error", err);
+      debug("Error", err);
       res.json(err);
     });
 });
@@ -126,7 +149,7 @@ app.get("/account/:account/messages/:id", function(req, res) {
   store
     .find("message", req.params.id)
     .then(message => {
-      console.log("message", message);
+      debug("message", message);
       if ( message.account === account) {
         res.json(message);
       } else {
@@ -134,7 +157,7 @@ app.get("/account/:account/messages/:id", function(req, res) {
       }
     })
     .catch(err => {
-      console.log("Error", err);
+      debug("Error", err);
       res.json(err);
     });
 });

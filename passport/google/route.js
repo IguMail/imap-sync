@@ -1,5 +1,4 @@
 var router = require('express').Router();
-var jwt = require("jsonwebtoken")
 
 function getRouter(passport, scope, secret) {
   // GET /auth/google
@@ -23,15 +22,8 @@ function getRouter(passport, scope, secret) {
       failureRedirect: "/"
     }),
     function(req, res) {
-      // Authenticated successfully
-      var token = jwt.sign({ id: req.user.id }, secret, {
-        expiresIn: 86400 // expires in 24 hours
-      });
-      //res.redirect("/");
-      res.json({
-        token,
-        user: req.user
-      });
+      // Auth success
+      return res.redirect("/");
     }
   );
 

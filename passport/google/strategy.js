@@ -18,9 +18,7 @@ function getStrategy(authOptions, cb) {
       // xoauth
       var email = profile.emails[0].value;
       var xOAuth2Token = buildXOAuth2Token(email, accessToken);
-      console.log("AUTH XOAUTH2 " + xOAuth2Token, email, accessToken);
 
-      // callback.
       profile = {
         ...profile,
         accessToken,
@@ -30,12 +28,6 @@ function getStrategy(authOptions, cb) {
       };
 
       cb && cb(profile)
-
-      /*
-      User.findOrCreate({ googleId: profile.id }, function(err, user) {
-        return done(err, user);
-      });
-      */
 
       return done(null, profile);
     }
