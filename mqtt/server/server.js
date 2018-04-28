@@ -7,6 +7,8 @@ const mqttTransport = require("../lib/mqtt");
 const crypto = require("crypto");
 const MailEventEmitter = require('events').EventEmitter;
 const store = require('../../store/store');
+var MailSync = require("../../sync");
+var imapConfig = require("../../config/imap");
 
 const MQTT_HOST = process.env.MQTT_HOST || "mqtt://broker.hivemq.com";
 const MQTT_PORT = process.env.MQTT_PORT || 1883;
@@ -83,9 +85,6 @@ function handleAppExit(options, err) {
   }
 }
 
-var MailSync = require("../../sync");
-var imapConfig = require("../../config/imap");
-
 function createMailSync(xoauth2, pubsub) {
   debug("Authenticating: ", xoauth2);
   var mailSync = new MailSync({
@@ -146,27 +145,104 @@ function createMailSync(xoauth2, pubsub) {
   return mailSync;
 }
 
+// TODO: remove For debugging
+if (process.env.CLEAN_STORE === 'true') {
+  store.destroyAll("message");
+  store.destroyAll("attachment");
+}
+store.destroyAll("message");
+  store.destroyAll("attachment");
+
 /**
  * All Mail events
  */
 mailEmitter.on('mail', ({ mail, seqno, attributes }) => {
-  const messageId = mail.messageId;
-  const deliveredTo = mail.headers['delivered-to'];
-  const receivedDate = mail.receivedDate;
-  const subject = mail.subject;
-  const hash = sha1(JSON.stringify(mail))
-  store.create('message', { 
+  const {
     messageId,
-    deliveredTo,
     receivedDate,
-    subject,
-    mail,
-    hash,
-    attributes 
-  }).then((entry) => {
-    mailEmitter.emit('mail/saved', entry);
-  });
+    subject
+  } = mail;
+  const deliveredTo = Array.isArray(mail.headers['delivered-to']) 
+    ? mail.headers['delivered-to']
+    : [mail.headers['delivered-to']]
+  const hash = generateMailHash(mail);
+
+  if (mail.attachments) {
+    const attachments = mail.attachments.map(attachment => {
+      return streamToBuffer(attachment.stream)
+        .then((buffer) => {
+          delete attachment.stream
+          return store.create('attachment', { 
+            messageId,
+            account: deliveredTo[0],
+            hash,
+            attributes,
+            attachment,
+            buffer: buffer
+          }).then((entry) => {
+            mailEmitter.emit('mail/attachment/saved', entry);
+            return entry
+          })
+          .catch(err => debug('Failed to save attachment', err))
+        })
+        .catch(err => debug('Could not get attachment buffer', err))
+    })
+    Promise.all(attachments).then(res => debug('saved attachments', res))
+      .catch(err => debug('Failed to save an attachment', err))
+      .then(() => {
+        return store.create('message', { 
+          messageId,
+          deliveredTo: deliveredTo,
+          account: deliveredTo[0], // TODO: fix get from OAuth or user/pass
+          receivedDate,
+          subject,
+          mail,
+          hash,
+          attributes 
+        })
+          .then((entry) => {
+            mailEmitter.emit('mail/saved', entry);
+          })
+          .catch(err => debug('Failed to save message', err));
+      })
+  }
 })
+
+function streamToBuffer(stream) {
+  var buf = [];
+  let resolver
+  debug('stream to buffer', stream)
+  stream.on('readable', function() {
+    debug('stream readable')
+    let data
+    while (data = this.read()) {
+      debug('stream read', data)
+      buf.push(data)
+    }
+  })
+  stream.on('data', data => {
+    debug('read data', data)
+    buf.push(data)
+  });
+  stream.on('end', () => {
+    debug('stream end buffer', buf)
+    resolver(Buffer.concat(buf))
+  })
+  stream.resume()
+  return new Promise(resolve => {
+    resolver = resolve
+  })
+}
+
+function generateMailHash(mail) {
+  const hash = sha1(JSON.stringify({
+    messageId: mail.messageId,
+    deliveredTo: mail.deliveredTo,
+    subject: mail.subject,
+    receivedDate: mail.receivedDate
+  }));
+  return hash;
+}
 
 /**
  * Handle the different ways an application can shutdown

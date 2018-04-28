@@ -102,13 +102,17 @@ function imapError(err) {
 
 function imapSync() {
   var self = this;
+  var getInitialUid = () => {
+    return Math.max(this.currentMailbox.uidnext - self.fetchLimitInitial, 1);
+  }
+
   var filter = [].concat(self.searchFilter);
   if (this.lastUid) {
     filter.push(["UID", this.lastUid + ":*"]);
   } else {
     filter.push([
       "UID",
-      this.currentMailbox.uidnext - self.fetchLimitInitial + ":*"
+      getInitialUid() + ":*"
     ]);
   }
   debug("Filter", filter);
@@ -199,7 +203,7 @@ function parseMessage(stream, callback) {
       mail.attachments &&
       self.attachments
     ) {
-      self.saveAttachments(self.attachments, (err, attachments) => {
+      self.saveAttachments(mail.attachments, (err, attachments) => {
         callback(err, mail);
       });
     } else {
@@ -257,7 +261,7 @@ MailSync.prototype.searchByMessageId = function(messageId, cb) {
 };
 
 MailSync.prototype.fetchByMessageId = function(messageId, cb) {
-  var s = this.searchByMessageId(messageId, (err, uids => {
-    uids.forEach(uid => this.fetchByUid(ui, cb))
-  }));
+  var s = this.searchByMessageId(messageId, (err, uids) => {
+    uids.forEach(uid => this.fetchByUid(uid, cb))
+  });
 };

@@ -22,7 +22,7 @@ transport.on("connect", () => {
     });
     var channel = transport.channel(transport.id);
     startAuth(channel);
-  }, 500);
+  }, 2000);
 });
 
 function startAuth(channel) {
@@ -54,10 +54,10 @@ function onSecureChannel(channel) {
     debug("connected to mailbox", message);
   });
   channel.subscribe("imap/mail", ({ mail, headers, attributes }) => {
-    debug("mail", mail, headers, attributes);
+    //debug("mail", mail, headers, attributes);
   });
   channel.subscribe("imap/attachment", ({ mail, attachment }) => {
-    debug("attachment", mail, attachment);
+    //debug("attachment", mail, attachment);
   });
   channel.subscribe("imap/uids", message => {
     debug("received %s uids", message.length);

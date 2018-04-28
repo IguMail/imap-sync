@@ -7,5 +7,6 @@ const store = new Container();
 
 store.registerAdapter("rethinkdb", adapter, { default: true });
 store.defineMapper("message");
+store.defineMapper("attachment");
 
 module.exports = store;
