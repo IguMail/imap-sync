@@ -14,8 +14,9 @@ const MQTT_HOST = process.env.MQTT_HOST || "mqtt://broker.hivemq.com";
 const MQTT_PORT = process.env.MQTT_PORT || 1883;
 const client = mqtt.connect(MQTT_HOST);
 var transport = new mqttTransport({ id: "server", client });
-var xOAuth2 = require("../../session").xOAuth2; // mocked
 var mailEmitter = new MailEventEmitter();
+
+var xOAuth2 = process.env.XOAUTH2 || require("../../session").xOAuth2; // mocked
 
 debug("Connecting to host", MQTT_HOST);
 

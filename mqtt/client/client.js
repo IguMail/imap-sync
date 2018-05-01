@@ -12,7 +12,7 @@ var transport = new mqttTransport({
 
 var mailState = "";
 var connected = false;
-var xOAuth2 = require("../../session").xOAuth2; // mocked
+var xOAuth2 = process.env.XOAUTH2 || require("../../session").xOAuth2; // mocked
 
 transport.on("connect", () => {
   // wait for server
