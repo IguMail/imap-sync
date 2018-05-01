@@ -9,7 +9,9 @@
     "dev:mqtt:server": "DEBUG=mail* MQTT_HOST='mqtt://localhost:1883' nodemon mqtt/server/server.js",
     "dev:mqtt:client": "DEBUG=mail* MQTT_HOST='mqtt://localhost:1883' nodemon mqtt/client/client.js",
     "debug:mqtt:server": "DEBUG=mail* MQTT_HOST='mqtt://localhost:1883' nodemon -- --inspect mqtt/server/server.js",
-    "debug:mqtt:client": "DEBUG=mail* MQTT_HOST='mqtt://localhost:1883' nodemon -- --inspect mqtt/client/client.js"
+    "debug:mqtt:client": "DEBUG=mail* MQTT_HOST='mqtt://localhost:1883' nodemon -- --inspect mqtt/client/client.js",
+    "server": "node server.js",
+    "store": "node store/server.js"
   },
   "keywords": [
     "imap",
