@@ -11,7 +11,8 @@
     "debug:mqtt:server": "DEBUG=mail* MQTT_HOST='mqtt://localhost:1883' nodemon -- --inspect mqtt/server/server.js",
     "debug:mqtt:client": "DEBUG=mail* MQTT_HOST='mqtt://localhost:1883' nodemon -- --inspect mqtt/client/client.js",
     "server": "node server.js",
-    "store": "node store/server.js"
+    "store": "node store/server.js",
+    "pm2:mail-store": "PORT=3030 pm2 start store/server.js --name mail-store"
   },
   "keywords": [
     "imap",

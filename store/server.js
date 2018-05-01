@@ -3,6 +3,8 @@ const store = require("./store");
 const openurl = require("openurl").open;
 const debug = require('debug')('mail-sync:store:server')
 
+const PORT = process.evn.PORT || 3030
+
 const app = express();
 
 app.get("/", function(req, res) {
@@ -162,9 +164,9 @@ app.get("/account/:account/messages/:id", function(req, res) {
     });
 });
 
-app.listen(3000, function() {
-  console.log("Example app listening on port 3000!");
-  process.env.OPEN && openurl("http://localhost:3000/messages");
+app.listen(PORT, function() {
+  console.log("Example app listening on port", PORT);
+  process.env.OPEN && openurl("http://localhost:" + PORT + "/messages");
 });
 
 module.exports = app;
