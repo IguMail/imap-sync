@@ -125,20 +125,28 @@ app.post("/messages/update/:id", function(req, res) {
     .find("message", req.params.id)
     .then(message => {
       debug("message", message);
-      var updates = req.body
+      var update = req.body
 
-      var origMessage = JSON.parse(JSON.stringify(message))
-      origMessage.revisions = null
+      var original = JSON.parse(JSON.stringify(message))
+      message = Object.assign(message, update)
 
-      if (!message.revisions) {
-        message.revisions = []
+      var updatedAt = new Date()
+
+      if (!message.updates) {
+        message.updates = []
       }
-      message.revisions.push(origMessage)
+      message.updates.push({
+        updatedAt,
+        update
+      })
+
+      if (!message.original) {
+        message.original = original
+      }
 
       return message.save().then(() => {
         res.json({
-          updatedAt: new Date(),
-          updates,
+          updatedAt,
           message
         });
       })
