@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "mocha",
-    "dev": "PORT=5000 nodemon server.js",
+    "dev:server": "PORT=5000 DEBUG=mail* nodemon server.js",
+    "dev:store": "PORT=3030 DEBUG=mail* nodemon store/server.js",
     "dev:mqtt:server": "DEBUG=mail* MQTT_HOST='mqtt://localhost:1883' nodemon mqtt/server/server.js",
     "dev:mqtt:client": "DEBUG=mail* MQTT_HOST='mqtt://localhost:1883' nodemon mqtt/client/client.js",
     "debug:mqtt:server": "DEBUG=mail* MQTT_HOST='mqtt://localhost:1883' nodemon -- --inspect mqtt/server/server.js",
@@ -31,6 +32,7 @@
   "dependencies": {
     "async": "^2.1.4",
     "bluebird": "^3.4.7",
+    "body-parser": "^1.18.2",
     "concat-stream": "^1.6.2",
     "cookie-parser": "^1.4.3",
     "debug": "^3.1.0",
@@ -43,6 +45,7 @@
     "mailparser": "^0.6.1",
     "morgan": "^1.9.0",
     "mqtt": "^2.17.0",
+    "multer": "^1.3.0",
     "node-persist": "^2.0.7",
     "openurl": "^1.1.1",
     "passport": "^0.4.0",

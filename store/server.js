@@ -7,6 +7,13 @@ const PORT = process.env.PORT || 3030
 
 const app = express();
 
+var bodyParser = require('body-parser');
+var multer = require('multer'); // v1.0.5
+var upload = multer(); // for parsing multipart/form-data
+
+app.use(bodyParser.json()); // for parsing application/json
+app.use(bodyParser.urlencoded({ extended: true })); // for parsing application/x-www-form-urlencoded
+
 app.get("/", function(req, res) {
   res.send("Hello!");
 });
@@ -106,6 +113,36 @@ app.get("/messages/:id", function(req, res) {
     .then(message => {
       debug("message", message);
       res.json(message);
+    })
+    .catch(err => {
+      debug("Error", err);
+      res.json(err);
+    });
+});
+
+app.post("/messages/update/:id", function(req, res) {
+  store
+    .find("message", req.params.id)
+    .then(message => {
+      debug("message", message);
+      var updates = req.body
+
+      var origMessage = JSON.parse(JSON.stringify(message))
+      origMessage.revisions = null
+
+      if (!message.revisions) {
+        message.revisions = []
+      }
+      message.revisions.push(origMessage)
+
+      return message.save().then(() => {
+        res.json({
+          updatedAt: new Date(),
+          updates,
+          message
+        });
+      })
+      
     })
     .catch(err => {
       debug("Error", err);
