@@ -3,7 +3,7 @@ const store = require("./store");
 const openurl = require("openurl").open;
 const debug = require('debug')('mail-sync:store:server')
 
-const PORT = process.evn.PORT || 3030
+const PORT = process.env.PORT || 3030
 
 const app = express();
 
