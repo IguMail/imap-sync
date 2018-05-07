@@ -9,14 +9,15 @@ var authConfig = require("./config/auth"),
   googleStrategy = require('./passport/google/strategy'),
   googleRoute = require('./passport/google/route'),
   jwt = require("jsonwebtoken"),
-  debug = require('debug')('mail-sync:server');
+  debug = require('debug')('mail-sync:server'),
+  store = require('./store/store');
 
 const PORT = process.env.PORT || 3000;
 
 // Passport session setup.
 passport.serializeUser(function(user, done) {
   debug('serializeUser', user)
-  done(null, user);
+  store.create('user', user).then(entry => done(null, entry))
 });
 
 passport.deserializeUser(function(obj, done) {

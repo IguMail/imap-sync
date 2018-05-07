@@ -16,7 +16,7 @@ const client = mqtt.connect(MQTT_HOST);
 var transport = new mqttTransport({ id: "server", client });
 var mailEmitter = new MailEventEmitter();
 
-var xOAuth2 = process.env.XOAUTH2 || require("../../session").xOAuth2; // mocked
+var accessToken = 'fe94fa975050d326aba8c85ffb193319b92bb253' // mocked
 
 debug("Connecting to host", MQTT_HOST);
 
@@ -25,35 +25,71 @@ let channels = {};
 
 transport.on("connect", () => {
   debug("Server connected, subscribing...");
-  transport.subscribe("channel", message => {
-    const channel = transport.channel(message.id);
+  transport.subscribe("channel", ({userId, channelId}) => {
+    const channel = transport.channel(channelId);
+    channel.userId = userId
     startAuth(channel);
   });
 });
 
 function startAuth(channel) {
-  debug("Start auth", channel.id);
+  const { userId, channelId } = channel
+  debug("Start auth", channelId);
   const authToken = createToken();
   channel.publish("auth", {
     channel: "sha1(XOAUTH+authToken)",
+    channelId,
+    userId,
     authToken
   });
-  secureChannel(authToken);
+  secureChannel(channel, authToken);
 }
 
-function secureChannel(authToken) {
+function secureChannel(insecureChannel, authToken) {
+  const { userId, channelId } = insecureChannel
   debug("Create secure channel from authToken", authToken);
 
-  const sha1Token = sha1(xOAuth2 + authToken);
+  // TODO: get this from DB based on id
+  if (userId === 'ai') {
+    // generate secure channel ID
+    const sha1ChannelId = sha1(accessToken + authToken);
+    // secure channel
+    const channel = transport.channel(sha1ChannelId);
+    // AI can subscribe to all mail updates
+    channel.subscribe("sync", () => {
+      mailEmitter.on('imap/mail', ({ mail, seqno, attributes }) => {
+        channel.publish('imap/mail', { mail, seqno, attributes })
+      })
+      mailEmitter.on('mail/saved', (entry) => {
+        channel.publish('mail/saved', entry)
+      })
+    });
+    return
+  }
 
-  const channel = transport.channel(sha1Token);
-  channels[sha1Token] = channel;
-  channel.subscribe("sync", () => {
-    channel.sync = syncMail(channel)
-  });
+  if (!userId) {
+    return debug('User Id undefined', userId)
+  }
+
+  store.find('user', userId)
+    .then(user => {
+      const xOAuth2 = user.xOAuth2Token
+      const sha1ChannelId = sha1(xOAuth2 + authToken);
+
+      const channel = transport.channel(sha1ChannelId);
+      debug("Secure channel from authToken, xOAuth2, channelId", 
+        authToken, xOAuth2, sha1ChannelId);
+
+      // users can only subscribe to their account updates
+      channels[sha1ChannelId] = channel;
+      channel.subscribe("sync", () => {
+        channel.sync = syncMail(channel, xOAuth2)
+      });
+    })
+    .catch(err => debug('Failed to find user', err))
 }
 
-function syncMail(channel) {
+function syncMail(channel, xOAuth2) {
   channel.publish("connection", {
     state: "established"
   });
@@ -69,21 +105,6 @@ function sha1(str) {
 
 function createToken() {
   return sha1(Math.ceil(Math.random() * Math.pow(10, 20)).toString(16));
-}
-
-/**
- * Want to notify client that mail is disconnected before shutting down
- */
-function handleAppExit(options, err) {
-  if (err) {
-    console.error("App exited due to error", err);
-  }
-  if (options.cleanup) {
-    client.publish("mail/connected", "false");
-  }
-  if (options.exit) {
-    process.exit();
-  }
 }
 
 function createMailSync(xoauth2, pubsub) {
@@ -132,7 +153,7 @@ function createMailSync(xoauth2, pubsub) {
       seqno,
       attributes
     });
-    mailEmitter.emit("mail", {
+    mailEmitter.emit("imap/mail", {
       mail,
       seqno,
       attributes
@@ -159,7 +180,7 @@ if (process.env.CLEAN_STORE === 'true') {
 /**
  * All Mail events
  */
-mailEmitter.on('mail', ({ mail, seqno, attributes }) => {
+mailEmitter.on('imap/mail', ({ mail, seqno, attributes }) => {
   const {
     messageId,
     receivedDate,
@@ -227,23 +248,18 @@ function generateMailHash(mail) {
 }
 
 /**
- * Handle the different ways an application can shutdown
+ * Want to notify client that mail is disconnected before shutting down
  */
-process.on(
-  "exit",
-  handleAppExit.bind(null, {
-    cleanup: true
-  })
-);
-process.on(
-  "SIGINT",
-  handleAppExit.bind(null, {
-    exit: true
-  })
-);
-process.on(
-  "uncaughtException",
-  handleAppExit.bind(null, {
-    exit: true
-  })
-);
+function handleAppExit(options, err) {
+  if (err) {
+    console.error("App exited due to error", err);
+  }
+  if (options.cleanup) {
+    client.publish("mail/connected", "false");
+  }
+  if (options.exit) {
+    process.exit();
+  }
+
+}
+require('../../lib/processOnExit')(handleAppExit)
