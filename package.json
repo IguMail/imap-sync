@@ -17,7 +17,8 @@
     "store": "node store/server.js",
     "mqtt:server": "node mqtt/server/server.js",
     "mqtt:client": "node mqtt/client/client.js",
-    "pm2:mail-store": "PORT=3030 pm2 start store/server.js --name mail-store",
+    "pm2:mail:server": "NODE_ENV=production PORT=8030 pm2 start server.js --name mail:server",
+    "pm2:mail:store": "PORT=3030 pm2 start store/server.js --name mail:store",
     "pm2:mqtt:server": "pm2 start mqtt/server/server.js --name mail:mqtt:server"
   },
   "keywords": [

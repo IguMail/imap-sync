@@ -26,6 +26,10 @@ passport.deserializeUser(function(obj, done) {
   done(null, obj);
 });
 
+if (process.env.NODE_ENV === 'production') {
+  authConfig.google.callbackURL = 'https://auth.igumail.com/auth/google/callback'
+}
+
 var strategy = googleStrategy(authConfig.google, profile => {
   debug('received profile', profile)
 })
