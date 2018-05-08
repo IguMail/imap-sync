@@ -36,12 +36,15 @@ function startAuth(channel) {
   const { userId, channelId } = channel
   debug("Start auth", channelId);
   const authToken = createToken();
-  channel.publish("auth", {
-    channel: "sha1(XOAUTH+authToken)",
-    channelId,
-    userId,
-    authToken
-  });
+  // TODO: ensure client receipt
+  setTimeout(() => {
+    channel.publish("auth", {
+      channel: "sha1(XOAUTH+authToken)",
+      channelId,
+      userId,
+      authToken
+    });
+  }, 200)
   secureChannel(channel, authToken);
 }
 
@@ -73,7 +76,7 @@ function secureChannel(insecureChannel, authToken) {
 
   store.find('user', userId)
     .then(user => {
-      const xOAuth2 = user.xOAuth2Token
+      const xOAuth2 = user.user.xOAuth2Token
       const sha1ChannelId = sha1(xOAuth2 + authToken);
 
       const channel = transport.channel(sha1ChannelId);
@@ -161,7 +164,7 @@ function createMailSync(xoauth2, pubsub) {
   });
 
   mailSync.on("attachment", function({ mail, attachment }) {
-    debug("attachment", mail, attachment);
+    debug("attachment", mail.subject, attachment);
     var { messageId, subject, inReplyTo, from, to } = mail;
     pubsub.publish("imap/attachment", { mail: {
       messageId, subject, inReplyTo, from, to

@@ -88,7 +88,7 @@ mqtt.prototype.stringifyDebugMessage = function(message = "", length = 100) {
   } catch (e) {
     str = "";
   }
-  return str.substr(0, length) + (str.length > length ? "..." : "");
+  return typeof str === 'string' ? str.substr(0, length) + (str.length > length ? "..." : "") : str;
 };
 
 module.exports = mqtt;

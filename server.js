@@ -17,7 +17,14 @@ const PORT = process.env.PORT || 3000;
 // Passport session setup.
 passport.serializeUser(function(user, done) {
   debug('serializeUser', user)
-  store.create('user', user).then(entry => done(null, entry))
+  store.create('user', {
+    createdOn: new Date(),
+    user
+  })
+    .then(entry => done(null, entry))
+    .catch(err => {
+      done(err, entry)
+    })
 });
 
 passport.deserializeUser(function(obj, done) {
@@ -77,14 +84,14 @@ app.get("/", ensureAuthenticated, function(req, res) {
   });
   res.json({
     jwtToken,
-    user: req.user,
+    account: req.user,
     time: new Date()
   });
 });
 
 app.get("/account", ensureAuthenticated, function(req, res) {
   res.json({
-    user: req.user
+    account: req.user
   });
 });
 

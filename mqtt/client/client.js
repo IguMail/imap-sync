@@ -41,7 +41,7 @@ function secureChannel(authToken, cb) {
   
   store.find('user', userId)
     .then(user => {
-      const xOAuth2 = user.xOAuth2Token
+      const xOAuth2 = user.user.xOAuth2Token
       const sha1ChannelId = crypto
         .createHash("sha1")
         .update(xOAuth2 + authToken)
@@ -57,7 +57,6 @@ function secureChannel(authToken, cb) {
 
 function onSecureChannel(channel) {
   debug("On secure channel");
-  channel.publish("sync");
   channel.subscribe("connection", () => {
     debug("connected to mail broker");
   });
@@ -79,4 +78,6 @@ function onSecureChannel(channel) {
       debug("Re-Authentication required");
     }
   });
+
+  setTimeout(() => channel.publish("sync"), 500)
 }
