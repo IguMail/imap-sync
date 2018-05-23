@@ -209,6 +209,37 @@ app.get("/account/:account/messages/:id", function(req, res) {
     });
 });
 
+app.get("/account/:account/thread/:id", function(req, res) {
+  const account = req.params.account
+  store
+    .find("message", req.params.id)
+    .then(message => {
+      debug("message", message);
+      if ( message.account !== account) {
+        return new Error('Invalid message Id')
+      }
+      return message
+    })
+    .then(message => {
+      const subject = message.mail.subject
+      findAllMessagesFromReq(req, entry => {
+        const _subject = entry.mail.subject
+        return (_subject === subject || _subject.replace(/^re\:/i, '') === subject.replace(/^re\:/i, ''))
+        && entry.account === message.account
+      })
+      .then(messages => {
+        debug("messages", messages);
+        res.json(getMessageListFormat(messages));
+      })
+    })
+    .catch(err => {
+      debug("Error", err);
+      res.json({
+        error: err.message  
+      });
+    })
+});
+
 app.listen(PORT, function() {
   console.log("Example app listening on port", PORT);
   process.env.OPEN && openurl("http://localhost:" + PORT + "/messages");
