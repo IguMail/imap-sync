@@ -35,7 +35,7 @@ function getTextSnippet(text, len = 200) {
 function findAllMessagesFromReq(req, filter = {}) {
   return new Promise((resolve, reject) => {
     const offset = req.query.offset || 0
-    const limit = req.query.limit || 20
+    const limit = req.query.limit || 50
     let query = {
       offset,
       limit,
@@ -221,8 +221,8 @@ app.get("/account/:account/thread/:id", function(req, res) {
     .find("message", req.params.id)
     .then(message => {
       debug("message", message);
-      if ( message.account !== account) {
-        return new Error('Invalid message Id')
+      if ( !message || message.account !== account) {
+        throw new Error('Failed to retrieve message')
       }
       return message
     })
@@ -230,8 +230,12 @@ app.get("/account/:account/thread/:id", function(req, res) {
       const subject = message.mail.subject
       findAllMessagesFromReq(req, entry => {
         const _subject = entry.mail.subject
-        return (_subject === subject || _subject.replace(/^re\:/i, '') === subject.replace(/^re\:/i, ''))
-        && entry.account === message.account
+        try {
+          return (_subject === subject || _subject.replace(/^re\:/i, '') === subject.replace(/^re\:/i, ''))
+            && entry.account === message.account
+        } catch(err) {
+          throw new Error('Failed to retrieve message thread')
+        }
       })
       .then(messages => {
         debug("messages", messages);
