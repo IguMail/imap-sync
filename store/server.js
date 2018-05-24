@@ -14,6 +14,12 @@ var upload = multer(); // for parsing multipart/form-data
 app.use(bodyParser.json()); // for parsing application/json
 app.use(bodyParser.urlencoded({ extended: true })); // for parsing application/x-www-form-urlencoded
 
+app.use(function(req, res, next) {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+  next();
+});
+
 app.get("/", function(req, res) {
   res.send("Hello!");
 });
@@ -29,7 +35,7 @@ function getTextSnippet(text, len = 200) {
 function findAllMessagesFromReq(req, filter = {}) {
   return new Promise((resolve, reject) => {
     const offset = req.query.offset || 0
-    const limit = req.query.limit || 5
+    const limit = req.query.limit || 20
     let query = {
       offset,
       limit,
@@ -229,7 +235,10 @@ app.get("/account/:account/thread/:id", function(req, res) {
       })
       .then(messages => {
         debug("messages", messages);
-        res.json(getMessageListFormat(messages));
+        res.json({
+          subject,
+          messages: getMessageListFormat(messages)
+        });
       })
     })
     .catch(err => {
