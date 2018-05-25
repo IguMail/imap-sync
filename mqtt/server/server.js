@@ -258,11 +258,20 @@ mailEmitter.on('imap/mail', ({ mail, seqno, attributes }) => {
         return entry
       })
     )
-
-  Promise.all(storeAttachments(mail.attachments))
+  
+  // check mail exists before store
+  store.findAll('message', {
+    messageId
+  }).then(messages => {
+    if (messages && messages.length > 0) {
+      return debug('Message exists in storage', messageId)
+    }
+    Promise.all(storeAttachments(mail.attachments))
     .then((attachments) => storeMessage(mail, attachments))
     .then((entry) => mailEmitter.emit('mail/saved', entry))
     .catch(err => debug('Failed to save message', err))
+  })
+  
 })
 
 function generateMailHash(mail) {
