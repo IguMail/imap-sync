@@ -6,7 +6,7 @@
   "scripts": {
     "test": "mocha",
     "dev:server": "PORT=5000 DEBUG=mail* nodemon server.js",
-    "dev:store": "PORT=3030 DEBUG=mail* nodemon store/server.js",
+    "dev:store": "PORT=3030 DEBUG=mail-sync:* nodemon store/server.js",
     "dev:mqtt:server": "DEBUG=mail* MQTT_HOST='mqtt://localhost:1883' nodemon mqtt/server/server.js",
     "dev:mqtt:client": "DEBUG=mail* MQTT_HOST='mqtt://localhost:1883' nodemon mqtt/client/client.js",
     "dev:mqtt:ai": "DEBUG=mail* MQTT_HOST='mqtt://localhost:1883' nodemon mqtt/client/ai.js",

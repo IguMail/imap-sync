@@ -8,7 +8,7 @@ const adapter = new RethinkDBAdapter({
     db: process.env.DB_DATABASE || "mail",
     authKey: process.env.DB_AUTH_KEY || ""
   },
-  debug: true
+  debug: process.env.DB_DEBUG || false
 });
 
 module.exports = adapter;

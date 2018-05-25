@@ -200,7 +200,7 @@ function createMailSync(xoauth2, pubsub, mailbox, recursive) {
 }
 
 // TODO: remove For debugging
-if (process.env.CLEAN_STORE === 'true') {
+if (process.env.CLEAN_STORE) {
   store.destroyAll("message");
   store.destroyAll("attachment");
 }
