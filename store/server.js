@@ -87,17 +87,18 @@ function findAllMessagesFromReq(req, filter = {}) {
 }
 
 const getThreadFilter = (message) => {
+  const subject = message.subject || ''
   return {
     account: message.account,
     subject: {
-      in: [message.subject, message.subject.replace(/^re\:/i, '')]
+      in: [subject, subject.replace(/^re\:[ ]*/i, ''), 'Re: ' + subject]
     }
   }
 }
 
 const getTheadId = (message) => {
-  const subject = message.mail.subject
-  return JSON.stringify([message.account, subject.replace(/^re\:/i, '')])
+  const subject = message.subject || ''
+  return JSON.stringify([message.account, subject.replace(/^re\:[ ]*/i, '')])
 }
 
 function findTheadMessages(req, message) {
@@ -255,14 +256,15 @@ app.get("/account/:account/messages/:id", function(req, res) {
 
 app.get("/account/:account/threads", function(req, res) {
   const account = req.params.account
-  const limit = req.query.limit || 50
-  const threadReqLimit = 10 // TODO: remove when threads optimized
+  const limit = req.query.limit || 20
+  const threadReqLimit = 2 // TODO: remove when threads optimized
   const filter = {
     'account': {
       '==': account
     }
   }
-  const aggregateMessagesIntoThreads = (threads, messages) => {
+  const threadMessages = messages => {
+    const threads = {}
     messages.forEach(message => {
       const threadId = getTheadId(message)
       if (!threads[threadId]) threads[threadId] = []
@@ -276,12 +278,11 @@ app.get("/account/:account/threads", function(req, res) {
     }, [])
   }
   const getThreads = (reqLimit = 10, threads = {}) => {
-    debug('getThreads', Object.keys(threads), reqLimit)
+    debug('getThreads: len %s reqLimit %s', Object.keys(threads).length, reqLimit)
     const messages = flattenThreads(threads)
-    debug('getThreads:messages', messages)
     const req = {
       query: {
-        limit: 100
+        limit: limit*2
       }
     }
     if (messages.length) {
@@ -289,10 +290,15 @@ app.get("/account/:account/threads", function(req, res) {
     }
     return findAllMessagesFromReq(req, filter)
       .then(messages => {
-        debug("getThreads:findAllMessagesFromReq", req.query.offset, getMessageListDebugFormat(messages));
-        if (!messages) return threads // end of collection
-        aggregateMessagesIntoThreads(threads, messages)
-        if(Object.keys(threads).length < limit && reqLimit) {
+        if (!messages) {
+          debug('findAllMessagesFromReq: no more messages found. End of messages.')
+          return threads // end of collection
+        }
+        // update/add last message of each thread
+        threads = Object.assign(threads, threadMessages(messages))
+        const len = Object.keys(threads).length
+        if(len < limit && reqLimit) {
+          debug('getThreads: (more) reqLimit %s limit %s len %s', reqLimit, limit, len)
           return getThreads(reqLimit - 1, threads)
         }
         return threads
@@ -301,11 +307,7 @@ app.get("/account/:account/threads", function(req, res) {
   
   getThreads(threadReqLimit)
   .then(threads => {
-    const reqs = Object.keys(threads).map(key => findTheadMessages({ query: {} }, threads[key][0]))
-    return Promise.all(reqs)
-  })
-  .then(threads => {
-    debug('threads', Object.keys(threads))
+    debug('final threads', Object.keys(threads).length)
     res.json({
       threads: Object.keys(threads).map(key => {
         const messages = threads[key]
