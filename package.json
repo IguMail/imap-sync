@@ -50,6 +50,7 @@
     "mqtt": "^2.17.0",
     "multer": "^1.3.0",
     "node-persist": "^2.0.7",
+    "nodemailer": "^4.6.5",
     "openurl": "^1.1.1",
     "passport": "^0.4.0",
     "passport-google-oauth": "^1.0.0",
