@@ -19,7 +19,8 @@ passport.serializeUser(function(user, done) {
   debug('serializeUser', user)
   store.create('user', {
     createdOn: new Date(),
-    user
+    user,
+    account: user.email
   })
     .then(entry => done(null, entry))
     .catch(err => {

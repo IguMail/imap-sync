@@ -96,7 +96,7 @@ function syncMail(channel, xOAuth2) {
   channel.publish("connection", {
     state: "established"
   });
-  createMailSync(xOAuth2, channel);
+  createMailSync(xOAuth2, channel, 'INBOX', true);
 }
 
 function sha1(str) {
@@ -110,7 +110,7 @@ function createToken() {
   return sha1(Math.ceil(Math.random() * Math.pow(10, 20)).toString(16));
 }
 
-function createMailSync(xoauth2, pubsub) {
+function createMailSync(xoauth2, pubsub, mailbox, recursive) {
   debug("Authenticating: ", xoauth2);
   var mailSync = new MailSync({
     ...imapConfig,
@@ -118,7 +118,8 @@ function createMailSync(xoauth2, pubsub) {
       streamAttachments: false // TODO: stream attachments
     },
     attachments: false, // never save attachments to file
-    xoauth2
+    xoauth2,
+    mailbox
   });
 
   mailSync.start(); // start listening
@@ -126,6 +127,30 @@ function createMailSync(xoauth2, pubsub) {
   mailSync.on("connected", function() {
     debug("imapConnected");
     pubsub.publish("imap/connected");
+
+    const imap = mailSync.imap
+
+    if (recursive) {
+      imap.getSubscribedBoxes(function syncBoxes(err, boxes, path) {
+        if (err) throw err;
+        const currBoxName = Object.keys(boxes).shift()
+        debug('syncBoxes', currBoxName, boxes, path)
+        if (!path)
+          path = '';
+        for (let key in boxes) {
+          const box = boxes[key]
+          const boxPath = path + key
+          if (box.children)
+            syncBoxes(null, box.children, boxPath + box.delimiter);
+          else {
+            debug('key: ' + key);
+            if (key === currBoxName) continue
+            createMailSync(xoauth2, pubsub, boxPath, false)
+          }
+        }
+      })
+    }
+
   });
 
   mailSync.on("mailbox", function(mailbox) {
@@ -175,7 +200,7 @@ function createMailSync(xoauth2, pubsub) {
 }
 
 // TODO: remove For debugging
-if (process.env.CLEAN_STORE === 'true') {
+if (process.env.CLEAN_STORE) {
   store.destroyAll("message");
   store.destroyAll("attachment");
 }
@@ -233,11 +258,20 @@ mailEmitter.on('imap/mail', ({ mail, seqno, attributes }) => {
         return entry
       })
     )
-
-  Promise.all(storeAttachments(mail.attachments))
+  
+  // check mail exists before store
+  store.findAll('message', {
+    messageId
+  }).then(messages => {
+    if (messages && messages.length > 0) {
+      return debug('Message exists in storage', messageId)
+    }
+    Promise.all(storeAttachments(mail.attachments))
     .then((attachments) => storeMessage(mail, attachments))
     .then((entry) => mailEmitter.emit('mail/saved', entry))
     .catch(err => debug('Failed to save message', err))
+  })
+  
 })
 
 function generateMailHash(mail) {

@@ -19,12 +19,25 @@ function getStrategy(authOptions, cb) {
       var email = profile.emails[0].value;
       var xOAuth2Token = buildXOAuth2Token(email, accessToken);
 
+      const {
+        name,
+        emails,
+        photos,
+        provider,
+      } = profile
+
       profile = {
-        ...profile,
+        ...{
+          name,
+          emails,
+          photos,
+          provider,
+        },
         accessToken,
         refreshToken,
         xOAuth2Token,
-        email
+        email,
+        service: 'Gmail'
       };
 
       cb && cb(profile)

@@ -66,7 +66,7 @@ MailSync.prototype.stop = function() {
 function imapReady() {
   var self = this;
 
-  self.emit("connected", this.mailbox);
+  self.emit("connected");
 
   this.imap.openBox(this.mailbox, false, function(err, mailbox) {
     if (err) {
