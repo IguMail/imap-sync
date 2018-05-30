@@ -34,6 +34,15 @@ app.use('/messages', require('./routes/messages'))
 app.use('/attachments', require('./routes/attachments'))
 app.use('/account', require('./routes/account/messages'))
 app.use('/account', require('./routes/account/threads'))
+app.use('/account', require('./routes/account/accounts'))
+app.use('/account', require('./routes/account/sendMail'))
+
+app.use(function (error, req, res, next) {
+  res.send({
+    error: error.message,
+    stack: error.stack
+  })
+})
 
 app.listen(PORT, function() {
   console.log("Example app listening on port", PORT);

@@ -19,8 +19,8 @@ router.get("/:account/threads", function(req, res) {
       '==': account
     }
   }
-  const threadMessages = messages => {
-    const threads = {}
+  const threads = {}
+  const threadMessages = (messages, threads = {}) => {
     messages.forEach(message => {
       const threadId = getTheadId(message)
       if (!threads[threadId]) threads[threadId] = []
@@ -50,8 +50,8 @@ router.get("/:account/threads", function(req, res) {
           debug('findAllMessagesFromReq: no more messages found. End of messages.')
           return threads // end of collection
         }
-        // update/add last message of each thread
-        threads = Object.assign(threads, threadMessages(messages))
+        // merge messages into existing threads
+        threads = threadMessages(messages, threads)
         const len = Object.keys(threads).length
         if(len < limit && reqLimit) {
           debug('getThreads: (more) reqLimit %s limit %s len %s', reqLimit, limit, len)

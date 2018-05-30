@@ -110,6 +110,53 @@ function streamAttachment(attachment, res) {
   res.send(attachment.content)
 }
 
+function buildAccountsQueryFromReq(req, filter = {}) {
+  return new Promise((resolve, reject) => {
+    const offset = req.query.offset || 0
+    const limit = req.query.limit || 50
+    let query = {
+      offset,
+      limit,
+      orderBy: [
+        ['createdOn', 'DESC']
+      ],
+      where: {}
+    };
+    if (filter) {
+      if (typeof filter === 'function') {
+        debug('got filter function', filter)
+        query.filter = filter
+      } else {
+        query.where = Object.assign(query.where, filter);
+      }
+    }
+    if (req.query.messageId) {
+      query.where.messageId = {
+        '==': req.query.messageId
+      }
+    }
+    if (req.query.since) {
+      store
+        .find("user", req.query.since)
+        .then(account => {
+          if (account) {
+            query.where.createdOn = {
+              '>=': account.createdOn
+            }
+          } else {
+            reject({err: 'Invalid since parameter'});
+          }
+          resolve(query)
+        })
+        .catch(err => {
+          debug("Error", err);
+        });
+    } else {
+      resolve(query)
+    }
+  })
+}
+
 module.exports = {
   stripHtml,
   getTextSnippet,
@@ -120,5 +167,6 @@ module.exports = {
   getMessageListFormat,
   getMessageFormat,
   getMessageListDebugFormat,
-  streamAttachment
+  streamAttachment,
+  buildAccountsQueryFromReq
 }
