@@ -10,8 +10,7 @@ store.defineMapper("message");
 store.defineMapper("attachment");
 store.defineMapper("user");
 
-// custom queries
-// same interface as https://github.com/neumino/rethinkdbdash
-store.table = adapter.table
+// expose adapter so you can create custom queries
+store.adapter = adapter
 
 module.exports = store;
