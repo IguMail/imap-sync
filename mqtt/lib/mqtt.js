@@ -1,10 +1,16 @@
-const EventEmitter = require("events").EventEmitter;
+var EventEmitter = require('eventemitter2').EventEmitter2
 const util = require("util");
 const MQTTChannel = require("./channel");
 const debug = require("debug")("mail-sync:mqtt:mqtt");
 
 function mqtt({ id, client }) {
-  EventEmitter.call(this);
+  EventEmitter.call(this, {
+    wildcard: true,
+    delimiter: '/',
+    maxListeners: 20,
+    newListener: false,
+    verboseMemoryLeak: true
+  });
   this.id = id;
   this.client = client;
   this.channels = {};
@@ -68,7 +74,8 @@ mqtt.prototype.subscribe = function(topic, fn) {
   debug("Subscribing to topic", topic);
   this.client.subscribe(topic);
   if (fn) {
-    this.on(topic, message => {
+    const event = topic.replace('+', '*') // event wildcards
+    this.on(event, message => {
       debug("Receive subscribed message", topic);
       fn(message);
     });

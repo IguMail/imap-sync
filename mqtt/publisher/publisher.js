@@ -1,118 +1,69 @@
 /**
- * Mail Sync Server
+ * Mail Sync Publisher
  */
-const debug = require("debug")("mail-sync:mqtt:server");
+const debug = require("debug")("mail-sync:mqtt:pub");
 const mqtt = require("mqtt");
 const mqttTransport = require("../lib/mqtt");
-const crypto = require("crypto");
 const MailEventEmitter = require('events').EventEmitter;
 const store = require('../../store/store');
-var MailSync = require("../../sync");
-var imapConfig = require("../../config/imap");
+const MailSync = require("../../sync");
+const imapConfig = require("../../config/imap");
+const config = require('../config')
+const { generateMailHash } = require('../lib/utils')
 
 const MQTT_HOST = process.env.MQTT_HOST || "mqtt://broker.hivemq.com";
 const MQTT_PORT = process.env.MQTT_PORT || 1883;
-const client = mqtt.connect(MQTT_HOST);
-var transport = new mqttTransport({ id: "server", client });
-var mailEmitter = new MailEventEmitter();
+const uid = require('hat')(128)
 
-var accessToken = 'fe94fa975050d326aba8c85ffb193319b92bb253' // mocked
+const mailEmitter = new MailEventEmitter();
 
-debug("Connecting to host", MQTT_HOST);
+// MQTT Client 
+let client, transport
 
-// MQTT Client Channels
-let channels = {};
+connect()
 
-transport.on("connect", () => {
-  debug("Server connected, subscribing...");
-  transport.subscribe("channel", ({userId, channelId}) => {
-    const channel = transport.channel(channelId);
-    channel.userId = userId
-    startAuth(channel);
-  });
-});
-
-function startAuth(channel) {
-  const { userId, channelId } = channel
-  debug("Start auth", channelId);
-  const authToken = createToken();
-  // TODO: ensure client receipt
-  setTimeout(() => {
-    channel.publish("auth", {
-      channel: "sha1(XOAUTH+authToken)",
-      channelId,
-      userId,
-      authToken
-    });
-  }, 200)
-  secureChannel(channel, authToken);
+function connect() {
+  debug("Connecting to host", MQTT_HOST);
+  const mqttOptions = {
+    clientId: 'publisher-' + uid,
+    username: 'publisher',
+    password: config.publisher.accessToken
+  }
+  client = mqtt.connect(MQTT_HOST, mqttOptions);
+  transport = new mqttTransport({ id: "server", client });
+  transport.on("connect", () => onConnected(transport))
 }
 
-function secureChannel(insecureChannel, authToken) {
-  const { userId, channelId } = insecureChannel
-  debug("Create secure channel from authToken", authToken);
-
-  // TODO: get this from DB based on id
-  if (userId === 'ai') {
-    // generate secure channel ID
-    const sha1ChannelId = sha1(accessToken + authToken);
-    // secure channel
-    const channel = transport.channel(sha1ChannelId);
-    // AI can subscribe to all mail updates
-    channel.subscribe("sync", () => {
-      mailEmitter.on('imap/mail', ({ mail, seqno, attributes }) => {
-        channel.publish('imap/mail', { mail, seqno, attributes })
+function onConnected(transport) {
+  debug("Server connected, subscribing...")
+  transport.subscribe("client/+/imap/sync", ({userId}) => {
+    debug('Sync requested by ', userId)
+    findUser(userId)
+      .then(user => {
+        const channelId = 'client/' + user.id
+        debug('creating channel', channelId)
+        const channel = transport.channel(channelId)
+        syncMail(channel, user.user.xOAuth2Token)
       })
-      mailEmitter.on('mail/saved', (entry) => {
-        channel.publish('mail/saved', entry)
-      })
-    });
-    return
-  }
+      .catch(err => debug('Failed to find user', err))
+  })
+}
 
-  if (!userId) {
-    return debug('User Id undefined', userId)
-  }
-
-  store.find('user', userId)
-    .then(user => {
-      const xOAuth2 = user.user.xOAuth2Token
-      const sha1ChannelId = sha1(xOAuth2 + authToken);
-
-      const channel = transport.channel(sha1ChannelId);
-      debug("Secure channel from authToken, xOAuth2, channelId", 
-        authToken, xOAuth2, sha1ChannelId);
-
-      // users can only subscribe to their account updates
-      channels[sha1ChannelId] = channel;
-      channel.subscribe("sync", () => {
-        channel.sync = syncMail(channel, xOAuth2)
-      });
-    })
-    .catch(err => debug('Failed to find user', err))
+function findUser(userId) {
+  debug('Finding user', userId)
+  return store.find('user', userId)
 }
 
 function syncMail(channel, xOAuth2) {
-  channel.publish("connection", {
-    state: "established"
+  channel.publish("imap", {
+    state: "connecting"
   });
   createMailSync(xOAuth2, channel, 'INBOX', true);
 }
 
-function sha1(str) {
-  return crypto
-    .createHash("sha1")
-    .update(str)
-    .digest("hex");
-}
-
-function createToken() {
-  return sha1(Math.ceil(Math.random() * Math.pow(10, 20)).toString(16));
-}
-
 function createMailSync(xoauth2, pubsub, mailbox, recursive) {
   debug("Authenticating: ", xoauth2);
-  var mailSync = new MailSync({
+  const mailSync = new MailSync({
     ...imapConfig,
     mailParserOptions: {
       streamAttachments: false // TODO: stream attachments
@@ -175,7 +126,7 @@ function createMailSync(xoauth2, pubsub, mailbox, recursive) {
 
   mailSync.on("mail", function(mail, seqno, attributes) {
     // do something with mail object including attachments
-    debug("mail", attributes.uid, seqno, mail.subject, mail.date);
+    debug("mail", attributes, seqno, mail.subject, mail.date);
     pubsub.publish("imap/mail", {
       mail,
       seqno,
@@ -190,19 +141,13 @@ function createMailSync(xoauth2, pubsub, mailbox, recursive) {
 
   mailSync.on("attachment", function({ mail, attachment }) {
     debug("attachment", mail.subject, attachment);
-    var { messageId, subject, inReplyTo, from, to } = mail;
+    const { messageId, subject, inReplyTo, from, to } = mail;
     pubsub.publish("imap/attachment", { mail: {
       messageId, subject, inReplyTo, from, to
     }, attachment });
   });
 
   return mailSync;
-}
-
-// TODO: remove For debugging
-if (process.env.CLEAN_STORE) {
-  store.destroyAll("message");
-  store.destroyAll("attachment");
 }
 
 /**
@@ -274,15 +219,13 @@ mailEmitter.on('imap/mail', ({ mail, seqno, attributes }) => {
   
 })
 
-function generateMailHash(mail) {
-  const hash = sha1(JSON.stringify({
-    messageId: mail.messageId,
-    deliveredTo: mail.deliveredTo,
-    subject: mail.subject,
-    receivedDate: mail.receivedDate
-  }));
-  return hash;
-}
+
+/**
+ * AI Events
+ */
+mailEmitter.on('mail/saved', entry => {
+  transport.publish('mail/saved', entry)
+})
 
 /**
  * Want to notify client that mail is disconnected before shutting down

@@ -6,59 +6,51 @@ const store = require('../../store/store');
 const debug = require("debug")("mail-sync:client");
 
 var MQTT_HOST = process.env.MQTT_HOST || "mqtt://broker.hivemq.com";
-var client = mqtt.connect(MQTT_HOST);
-var channelId = hat(256)
-var transport = new mqttTransport({
-  id: channelId,
-  client
-});
-
-var mailState = "";
-var connected = false;
 var userId = process.env.USERID || '107051418222637953650'; // mocked from db
+var channelId = 'client/' + userId
 
-transport.on("connect", () => {
-  // wait for server
-  setTimeout(() => {
-    transport.publish("channel", {
-      channelId,
-      userId
-    });
-    var channel = transport.channel(channelId);
-    startAuth(channel);
-  }, 2000);
-});
+start()
 
-function startAuth(channel) {
-  debug("Start auth", channel.id);
-  channel.subscribe("auth", ({ authToken }) => {
-    secureChannel(authToken, onSecureChannel);
+function start() {
+  getUserById(userId).then(user => {
+    if (!user) throw new Error('User not found')
+    connect(user)
+  })
+  .catch(error => debug('Error getUserById', error))
+}
+
+function getUserById(userId) {
+  return store.find('user', userId)
+}
+
+function connect(user) {
+
+  var mqttOptions = {
+    clientId: user.id,
+    username: user.id,
+    password: user.user.xOAuth2Token
+  }
+
+  debug('Connecting to ', MQTT_HOST, 'as', user.id)
+  var client = mqtt.connect(MQTT_HOST, mqttOptions);
+  var transport = new mqttTransport({
+    id: 'channelId',
+    client
   });
+
+  transport.on("connect", () => onConnected(transport));
 }
 
-function secureChannel(authToken, cb) {
-  debug("Create secure channel from authToken", authToken);
-  
-  store.find('user', userId)
-    .then(user => {
-      const xOAuth2 = user.user.xOAuth2Token
-      const sha1ChannelId = crypto
-        .createHash("sha1")
-        .update(xOAuth2 + authToken)
-        .digest("hex");
-
-      const channel = transport.channel(sha1ChannelId);
-      debug("Joining secure channel from authToken %s xOAuth2 %s channelId %s", 
-        authToken, xOAuth2, sha1ChannelId);
-      cb(channel);
-    })
-    .catch(err => debug('Failed to find user', err))
+function onConnected(transport) {
+  debug('Connected to server')
+  var channel = transport.channel(channelId);
+  subscribe(channel)
 }
 
-function onSecureChannel(channel) {
+function subscribe(channel) {
   debug("On secure channel");
-  channel.subscribe("connection", () => {
-    debug("connected to mail broker");
+  channel.subscribe("imap", () => {
+    debug("connected to mail sync broker");
   });
   channel.subscribe("imap/connected", message => {
     debug("connected to mailbox", message);
@@ -79,5 +71,7 @@ function onSecureChannel(channel) {
     }
   });
 
-  setTimeout(() => channel.publish("sync"), 500)
+  setTimeout(
+    () => channel.publish("imap/sync", { userId }),
+    500)
 }
