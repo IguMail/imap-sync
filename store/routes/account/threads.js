@@ -84,10 +84,14 @@ router.get("/:account/threads", function(req, res) {
 
 router.get("/:account/threads/:id", function(req, res) {
   const account = req.params.account
-  debug('thread for id', account, req.params.id)
+  const id = req.params.id
+  debug('thread for id', account, id)
   store
-    .find("message", req.params.id)
+    .find("message", id)
     .then(message => {
+      if (!message) {
+        throw new Error('Could not find message to thread')
+      }
       debug("thread:message", message.id);
       if ( !message || message.account !== account) {
         throw new Error('Failed to retrieve message')

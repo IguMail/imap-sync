@@ -19,7 +19,8 @@
     "mqtt:server": "MQTT_HOST='mqtt://localhost:1883' node mqtt/server/server.js",
     "mqtt:client": "MQTT_HOST='mqtt://localhost:1883' node mqtt/client/client.js",
     "pm2:mail:server": "NODE_ENV=production PORT=8030 pm2 start server.js --name mail:server",
-    "pm2:mail:store": "PORT=3030 pm2 start store/server.js --name mail:store",
+    "pm2:mail:store": "PORT=3030 MQTT_HOST='mqtt://localhost:1883' pm2 start store/server.js --name mail:store",
+    "pm2:mqtt:broker": "PORT=1883 pm2 start mqtt/broker/broker.js --name mail:mqtt:broker",
     "pm2:mqtt:server": "MQTT_HOST='mqtt://localhost:1883' pm2 start mqtt/server/server.js --name mail:mqtt:server"
   },
   "keywords": [

@@ -5,7 +5,7 @@ var debug = require('debug')('mail-sync:broker:auth')
 var Authenticator = {}
 
 // initial connection user/pass auth
-Authenticator.authenticate = function(client, username, password, callback) {
+Authenticator.authenticate = function(client, username, password = '', callback) {
   debug('authenticate', client.id, username, password.toString())
   var authenticated = false
   if (username === 'ai') {
@@ -43,10 +43,12 @@ Authenticator.authorizePublish = function(client, topic, payload, callback) {
 // acl for subscribe
 Authenticator.authorizeSubscribe = function(client, topic, callback) {
   var authorized = false
-  if (client.username === 'ai') {
+  // ai and publisher can subscribe to any topic
+  if (client.username === 'ai' || client.username === 'publisher') {
     authorized = true
+  // clients can only subscribe to their username namespaced topic
   } else {
-    authorized = (topic.split('/')[0] === 'ai') ? false : true
+    if (topic.indexOf('client/' + client.username) === 0) authorized = true
   }
   debug('authorizeSubscribe', client.id, topic, authorized)
   callback(null, authorized);

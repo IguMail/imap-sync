@@ -3,33 +3,38 @@ var debug = require('debug')('mail-sync:broker')
 var config = require('../config')
 var authenticator = require('./authenticator')
 
-var PORT = process.env.PORT || 1883
+var PORT = parseInt(process.env.PORT || 1883, 10)
 
-var mongo = {
-  //using ascoltatore
-  type: 'mongo',		
-  url: 'mongodb://localhost:27017/mqtt',
-  pubsubCollection: 'ascoltatori',
-  mongo: {}
-}
-
-var moquitto = {
-  type: 'mqtt',
-  json: false,
-  mqtt: require('mqtt'),
-  host: '127.0.0.1',
-  port: 1883
+var backend = {
+  mqtt: {
+    type: 'mqtt',
+    json: false,
+    mqtt: require('mqtt'),
+    host: '127.0.0.1',
+    port: 1883
+  },
+  mongo: {
+    //using ascoltatore
+    type: 'mongo',		
+    url: 'mongodb://localhost:27017/mqtt',
+    pubsubCollection: 'ascoltatori',
+    mongo: {}
+  }
 }
 
 var persistence = {
-  factory: mosca.persistence.Mongo,
-  url: 'mongodb://localhost:27017/mqtt'
+  mongo: {
+    factory: mosca.persistence.Mongo,
+    url: 'mongodb://localhost:27017/mqtt'
+  },
+  memory: {
+    factory: mosca.persistence.Memory
+  }
 }
 
 var moscaSettings = {
   port: PORT,
-  backend: {}, // mqtt
-  persistence: {} // persistence
+  persistence: persistence.memory
 }
 
 var server = new mosca.Server(moscaSettings)

@@ -2,25 +2,22 @@ const mqtt = require("mqtt");
 const mqttTransport = require("../lib/mqtt");
 const crypto = require("crypto");
 const hat = require("hat");
+const config = require('../config')
 const debug = require("debug")("mail-sync:ai");
 
-var accessToken = 'fe94fa975050d326aba8c85ffb193319b92bb253' // mocked
-var mqttOptions = {
+// fe94fa975050d326aba8c85ffb193319b92bb253
+const accessToken = config.ai.accessToken 
+const mqttOptions = {
   username: 'ai',
   password: accessToken
 }
 
-var MQTT_HOST = process.env.MQTT_HOST || "mqtt://broker.hivemq.com";
-var client = mqtt.connect(MQTT_HOST, mqttOptions);
-var userId = 'ai'
-var channelId = 'ai'
-var transport = new mqttTransport({
-  id: channelId,
+const MQTT_HOST = process.env.MQTT_HOST || "mqtt://broker.hivemq.com";
+const client = mqtt.connect(MQTT_HOST, mqttOptions);
+const userId = 'ai'
+const transport = new mqttTransport({
   client
 });
-
-var mailState = "";
-var connected = false;
 
 transport.on("connect", () => {
   // wait for server
