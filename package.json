@@ -5,15 +5,15 @@
   "main": "index.js",
   "scripts": {
     "test": "mocha",
-    "dev:server": "PORT=5000 DEBUG=mail* MQTT_HOST='mqtt://localhost:1883' nodemon server.js",
-    "dev:store": "PORT=3030 DEBUG=mail-sync:* MQTT_HOST='mqtt://localhost:1883' nodemon store/server.js",
-    "dev:mqtt:broker": "DEBUG=mail* PORT=1883 nodemon mqtt/broker/broker.js",
-    "dev:mqtt:publisher": "DEBUG=mail* MQTT_HOST='mqtt://localhost:1883' nodemon mqtt/publisher/publisher.js",
-    "dev:mqtt:client": "DEBUG=mail* MQTT_HOST='mqtt://localhost:1883' nodemon mqtt/client/client.js",
-    "dev:mqtt:ai": "DEBUG=mail* MQTT_HOST='mqtt://localhost:1883' nodemon mqtt/client/ai.js",
-    "debug:mqtt:server": "DEBUG=mail* MQTT_HOST='mqtt://localhost:1883' nodemon -- --inspect mqtt/server/server.js",
-    "debug:mqtt:client": "DEBUG=mail* MQTT_HOST='mqtt://localhost:1883' nodemon -- --inspect mqtt/client/client.js",
-    "debug:mqtt:ai": "DEBUG=mail* MQTT_HOST='mqtt://localhost:1883' nodemon -- --inspect mqtt/client/ai.js",
+    "dev:server": "NODE_ENV=development PORT=5000 DEBUG=mail* MQTT_HOST='mqtt://localhost:1883' nodemon server.js",
+    "dev:store": "NODE_ENV=development PORT=3030 DEBUG=mail* MQTT_HOST='mqtt://localhost:1883' nodemon store/server.js",
+    "dev:mqtt:broker": "NODE_ENV=development DEBUG=mail* PORT=1883 nodemon mqtt/broker/broker.js",
+    "dev:mqtt:publisher": "NODE_ENV=development DEBUG=mail* MQTT_HOST='mqtt://localhost:1883' nodemon mqtt/publisher/publisher.js",
+    "dev:mqtt:client": "NODE_ENV=development DEBUG=mail* MQTT_HOST='mqtt://localhost:1883' nodemon mqtt/client/client.js",
+    "dev:mqtt:ai": "NODE_ENV=development DEBUG=mail* MQTT_HOST='mqtt://localhost:1883' nodemon mqtt/client/ai.js",
+    "debug:mqtt:server": "NODE_ENV=development DEBUG=mail* MQTT_HOST='mqtt://localhost:1883' nodemon -- --inspect mqtt/server/server.js",
+    "debug:mqtt:client": "NODE_ENV=development DEBUG=mail* MQTT_HOST='mqtt://localhost:1883' nodemon -- --inspect mqtt/client/client.js",
+    "debug:mqtt:ai": "NODE_ENV=development DEBUG=mail* MQTT_HOST='mqtt://localhost:1883' nodemon -- --inspect mqtt/client/ai.js",
     "server": "node server.js",
     "store": "node store/server.js",
     "mqtt:server": "MQTT_HOST='mqtt://localhost:1883' node mqtt/server/server.js",
@@ -62,6 +62,7 @@
     "pump": "^3.0.0",
     "rethinkdb": "^2.3.3",
     "rethinkdbdash": "^2.3.31",
+    "striptags": "^3.1.1",
     "xoauth2": "^1.2.0"
   }
 }

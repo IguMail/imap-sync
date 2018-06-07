@@ -50,7 +50,7 @@ server.on('clientConnected', function(client) {
 })
 
 server.on('published', function(packet, client) {
-  debug('Published', packet.payload.toString().substr(0, 100))
+  debug('Published', packet.topic, packet.payload.toString().substr(0, 100))
 })
 
 debug('Starting mosca...')

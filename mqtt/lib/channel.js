@@ -23,7 +23,7 @@ MQTTChannel.prototype.subscribe = function(topic, fn) {
 
 MQTTChannel.prototype.publish = function(topic, message) {
   const channelTopic = this.id + "/" + topic;
-  debug("publish", channelTopic, "len: " + (message && message.length));
+  debug("publish", channelTopic);
   this.client.publish(channelTopic, message);
 };
 

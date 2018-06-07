@@ -2,23 +2,19 @@ const store = require("../store")
 const { adapter } = store
 const debug = require('debug')('mail-sync:store:api')
 
-function findUserAccountEmail(account, email) {
-  const { r } = adapter
-  return r.table('user')
-    .filter({
-      account,
-      user: {
-        email
-      }
-    })
-    .orderBy(r.desc('createdOn'))
-    .limit(1)
-    .run()
-    .then((users) => {
-      const user = (users && users[0])
-      debug('findUserAccountEmail', user)
-      return user
-    })
+function getUserById(userId) {
+  return store.find('user', userId)
+}
+
+function getUserByAccountId(account) {
+  return store.findAll('user', {
+    account,
+    limit: 1,
+    orderBy: [
+      ['createdOn', 'DESC']
+    ]
+  })
+    .then(users => users[0])
 }
 
 function updateMessage(message, update) {
@@ -40,6 +36,7 @@ function updateMessage(message, update) {
 }
 
 module.exports = {
-  findUserAccountEmail,
-  updateMessage
+  updateMessage,
+  getUserById,
+  getUserByAccountId
 }

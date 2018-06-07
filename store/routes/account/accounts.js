@@ -5,7 +5,7 @@ const debug = require('debug')('mail-sync:account/accounts')
 const {
   buildAccountsQueryFromReq
 } = require('../utils')
-const { findUserAccountEmail } = require('../../adapters/api')
+const { getUserByAccountId } = require('../../adapters/api')
 const rethinkDBAdapter = store.rethinkDBAdapter
 
 router.get("/:account/accounts", function(req, res) {
@@ -35,7 +35,7 @@ router.get("/:account/accounts/:email", function(req, res) {
   const email = req.params.email
   const limit = 1
 
-  findUserAccountEmail(account, email)
+  getUserByAccountId(account, email)
   .then(user => {
     res.json({
       ...user

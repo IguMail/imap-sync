@@ -16,13 +16,30 @@ function generateMailHash(mail) {
     messageId: mail.messageId,
     deliveredTo: mail.deliveredTo,
     subject: mail.subject,
-    receivedDate: mail.receivedDate
+    receivedDate: mail.receivedDate,
+    from: mail.from,
+    text: mail.text,
+    html: mail.html,
+    headers: mail.headers
   }));
   return hash;
+}
+
+function getDeliveredTo(user, mail) {
+  let deliveredTo
+  if (mail.headers['delivered-to']) {
+    deliveredTo = Array.isArray(mail.headers['delivered-to']) 
+      ? mail.headers['delivered-to']
+      : [mail.headers['delivered-to']]
+  } else {
+    deliveredTo = [user.user.email]
+  }
+  return deliveredTo
 }
 
 module.exports = {
   sha1,
   createToken,
-  generateMailHash
+  generateMailHash,
+  getDeliveredTo
 }

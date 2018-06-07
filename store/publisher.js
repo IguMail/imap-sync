@@ -10,19 +10,25 @@ const uid = require('hat')(128)
 
 let client, transport
 
-function connect() {
+function createClient() {
   debug("Connecting to host", MQTT_HOST);
   const mqttOptions = {
     clientId: 'publisher-' + uid,
     username: 'publisher',
     password: config.publisher.accessToken
   }
-  client = mqtt.connect(MQTT_HOST, mqttOptions);
-  transport = new mqttTransport({ id: "store", client })
-  
-  return new Promise(
-    resolve => transport.on("connect", () => resolve(transport))
-  )
+  return mqtt.connect(MQTT_HOST, mqttOptions)
+}
+
+function connect() {
+  if (!client) {
+    client = createClient()
+    transport = new mqttTransport({ id: "store", client })
+    return new Promise(
+      resolve => transport.on("connect", () => resolve(transport))
+    )
+  }
+  return Promise.resolve(transport)
 }
 
 module.exports = {

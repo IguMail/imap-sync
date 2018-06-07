@@ -9,11 +9,13 @@ const store = require('../../store/store');
 const MailSync = require("../../sync");
 const imapConfig = require("../../config/imap");
 const config = require('../config')
-const { generateMailHash } = require('../lib/utils')
+const { generateMailHash, getDeliveredTo } = require('../lib/utils')
+const striptags = require('striptags')
 
 const MQTT_HOST = process.env.MQTT_HOST || "mqtt://broker.hivemq.com";
 const MQTT_PORT = process.env.MQTT_PORT || 1883;
 const uid = require('hat')(128)
+const mailboxRecursionDepth = 2
 
 const mailEmitter = new MailEventEmitter();
 
@@ -43,7 +45,7 @@ function onConnected(transport) {
         const channelId = 'client/' + user.id
         debug('creating channel', channelId)
         const channel = transport.channel(channelId)
-        syncMail(channel, user.user.xOAuth2Token)
+        syncMailAccount(channel, user)
       })
       .catch(err => debug('Failed to find user', err))
   })
@@ -54,22 +56,40 @@ function findUser(userId) {
   return store.find('user', userId)
 }
 
-function syncMail(channel, xOAuth2) {
+function syncMailAccount(channel, user) {
   channel.publish("imap", {
     state: "connecting"
   });
-  createMailSync(xOAuth2, channel, 'INBOX', true);
+  createMailSync(user, channel, 'INBOX', mailboxRecursionDepth);
 }
 
-function createMailSync(xoauth2, pubsub, mailbox, recursive) {
-  debug("Authenticating: ", xoauth2);
+function syncBoxes(boxes, path, cb, recursionDepth = 0) {
+  const currBoxName = Object.keys(boxes).shift()
+  debug('syncBoxes', currBoxName, boxes, path)
+  if (!path)
+    path = '';
+  for (let key in boxes) {
+    const box = boxes[key]
+    const boxPath = path + key
+    if (box.children && recursionDepth)
+      syncBoxes(null, box.children, boxPath + box.delimiter, recursionDepth--)
+    else {
+      debug('boxName: ' + key);
+      if (key === currBoxName) continue
+      cb && cb(boxPath)
+    }
+  }
+}
+
+function createMailSync(user, pubsub, mailbox, recursionDepth = 0) {
+  debug("Authenticating: ", user.user.xOAuth2Token);
   const mailSync = new MailSync({
     ...imapConfig,
     mailParserOptions: {
       streamAttachments: false // TODO: stream attachments
     },
     attachments: false, // never save attachments to file
-    xoauth2,
+    xoauth2: user.user.xOAuth2Token,
     mailbox
   });
 
@@ -81,24 +101,11 @@ function createMailSync(xoauth2, pubsub, mailbox, recursive) {
 
     const imap = mailSync.imap
 
-    if (recursive) {
-      imap.getSubscribedBoxes(function syncBoxes(err, boxes, path) {
-        if (err) throw err;
-        const currBoxName = Object.keys(boxes).shift()
-        debug('syncBoxes', currBoxName, boxes, path)
-        if (!path)
-          path = '';
-        for (let key in boxes) {
-          const box = boxes[key]
-          const boxPath = path + key
-          if (box.children)
-            syncBoxes(null, box.children, boxPath + box.delimiter);
-          else {
-            debug('key: ' + key);
-            if (key === currBoxName) continue
-            createMailSync(xoauth2, pubsub, boxPath, false)
-          }
-        }
+    if (recursionDepth) {
+      imap.getSubscribedBoxes((err, boxes, path) => {
+        syncBoxes(user, boxes, path, boxPath => {
+          createMailSync(user, pubsub, boxPath, 0)
+        }, recursionDepth--)
       })
     }
 
@@ -111,12 +118,19 @@ function createMailSync(xoauth2, pubsub, mailbox, recursive) {
 
   mailSync.on("disconnected", function() {
     debug("imapDisconnected, restart");
-    mailSync.start();
+    setTimeout(() => {
+      mailSync.start()
+    }, 1000)
   });
 
-  mailSync.on("error", function(err) {
-    debug("Error", err);
-    pubsub.publish("imap/error", err);
+  mailSync.on("error", function(error) {
+    debug("Error", error);
+    pubsub.publish("imap/error", { error });
+    if (error && error.source === 'timeout') {
+      setTimeout(() => {
+        mailSync.start()
+      }, 5000)
+    }
   });
 
   mailSync.on("uids", function(uids) {
@@ -133,6 +147,8 @@ function createMailSync(xoauth2, pubsub, mailbox, recursive) {
       attributes
     });
     mailEmitter.emit("imap/mail", {
+      pubsub,
+      user,
       mail,
       seqno,
       attributes
@@ -142,9 +158,13 @@ function createMailSync(xoauth2, pubsub, mailbox, recursive) {
   mailSync.on("attachment", function({ mail, attachment }) {
     debug("attachment", mail.subject, attachment);
     const { messageId, subject, inReplyTo, from, to } = mail;
-    pubsub.publish("imap/attachment", { mail: {
-      messageId, subject, inReplyTo, from, to
-    }, attachment });
+    pubsub.publish("imap/attachment", 
+    { 
+      mail: {
+        messageId, subject, inReplyTo, from, to
+      }, 
+      attachment 
+    });
   });
 
   return mailSync;
@@ -153,16 +173,18 @@ function createMailSync(xoauth2, pubsub, mailbox, recursive) {
 /**
  * All Mail events
  */
-mailEmitter.on('imap/mail', ({ mail, seqno, attributes }) => {
+mailEmitter.on('imap/mail', ({ pubsub, user, mail, seqno, attributes }) => {
   const {
     messageId,
     receivedDate,
-    subject
+    subject,
+    text,
+    html
   } = mail;
-  const deliveredTo = Array.isArray(mail.headers['delivered-to']) 
-    ? mail.headers['delivered-to']
-    : [mail.headers['delivered-to']]
-  const hash = generateMailHash(mail);
+  const deliveredTo = getDeliveredTo(user, mail)
+  const hash = generateMailHash(mail)
+
+  const snippet = (text || (html && striptags(html)) || '').substr(0, 200)
 
   const storeMessage = (mail, attachments) => {
     // use saved attachment entries without content
@@ -206,25 +228,26 @@ mailEmitter.on('imap/mail', ({ mail, seqno, attributes }) => {
   
   // check mail exists before store
   store.findAll('message', {
-    messageId
+    messageId,
+    hash
   }).then(messages => {
     if (messages && messages.length > 0) {
-      return debug('Message exists in storage', messageId)
+      return debug('Message exists in storage', messageId, hash, subject, snippet.substr(0, 200))
     }
     Promise.all(storeAttachments(mail.attachments))
     .then((attachments) => storeMessage(mail, attachments))
-    .then((entry) => mailEmitter.emit('mail/saved', entry))
+    .then((entry) => mailEmitter.emit('mail/saved', { pubsub, user, entry } ))
     .catch(err => debug('Failed to save message', err))
   })
   
 })
 
-
 /**
- * AI Events
+ * Publish mail save
  */
-mailEmitter.on('mail/saved', entry => {
-  transport.publish('mail/saved', entry)
+mailEmitter.on('mail/saved', ({ pubsub, entry }) => {
+  transport.publish('mail/saved', entry) // ai
+  pubsub.publish("mail/saved", entry) // user channel
 })
 
 /**

@@ -6,17 +6,55 @@ const {
   getMessageListFormat,
   getMessageListDebugFormat
 } = require('./utils')
-const { updateMessage } = require('../adapters/api')
+const { updateMessage, getUserByAccountId } = require('../adapters/api')
 const publisher = require('../publisher')
+const config = require('../../mqtt/config')
 const debug = require('debug')('mail-sync:messages/')
 
+/**
+ * Publish mail actions to global topic and user account topic
+ * @param {string} topic 
+ * @param {object} payload 
+ */
 function publish(topic, payload) {
+  const { account } = payload.message
   return publisher
     .connect()
     .then(
-      transport => transport.publish(topic, payload)
+      transport => {
+        return Promise.all([
+          transport.publish(topic, payload),
+          getUserByAccountId(account)
+            .then(user => {
+              if (!user) throw new Error('Could not find mail account to publish to')
+              debug('publish action to ', user.id, user.account)
+              transport.channel('client/' + user.id)
+                .publish(topic, payload)
+            })
+        ])
+      }
     )
 }
+
+// authentication and ACL
+router.use(function(req, resp, next) {
+  const apiKey = req.header('x-api-key')
+  const apiToken = req.header('x-api-token')
+  if (!apiKey) next(new Error('HTTP Header x-api-key is required'))
+  if (!apiToken) next(new Error('HTTP Header x-api-token is required'))
+  if (apiToken === config.ai.accessToken) {
+    debug('AI access token accepted')
+    next(null)
+  }
+  if (apiToken === config.publisher.accessToken) {
+    debug('Publisher access token accepted')
+    next(null)
+  }
+
+  // TODO user tokens
+
+  next(null)
+})
 
 router.get("/", function(req, res, next) {
   findAllMessagesFromReq(req)
@@ -65,6 +103,7 @@ router.post("/update/:id", function(req, res, next) {
             update
           })
           .then(() => debug('pubished update', message.id))
+          .catch(error => next(error))
       })
     })
     .catch(err => {
@@ -95,6 +134,7 @@ router.post("/delete/:id", function(req, res, next) {
             update
           })
           .then(() => debug('pubished update', message.id))
+          .catch(error => next(error))
       })
     })
     .catch(err => {
@@ -125,6 +165,7 @@ router.post("/restore/:id", function(req, res, next) {
             update
           })
           .then(() => debug('pubished update', message.id))
+          .catch(error => next(error))
       })
     })
     .catch(err => {
@@ -155,6 +196,7 @@ router.post("/spam/:id", function(req, res, next) {
             update
           })
           .then(() => debug('pubished update', message.id))
+          .catch(error => next(error))
       })
     })
     .catch(err => {
@@ -185,6 +227,7 @@ router.post("/unspam/:id", function(req, res, next) {
             update
           })
           .then(() => debug('pubished update', message.id))
+          .catch(error => next(error))
       })
     })
     .catch(err => {
@@ -217,6 +260,7 @@ router.post("/labels/update/:id", function(req, res, next) {
             update
           })
           .then(() => debug('pubished update', message.id))
+          .catch(error => next(error))
       })
     })
     .catch(err => {
@@ -233,11 +277,12 @@ router.post("/labels/add/:id", function(req, res, next) {
     .then(message => {
       if (!message) return next(new Error('Could not find message'))
       debug("add labels message", message.id);
+      const labelsUnique = [
+        ...message.labels,
+        ...labels
+      ].filter((value, i, self) => self.indexOf(value) === i)
       var update = {
-        labels: [
-          ...message.labels,
-          ...labels
-        ]
+        labels: labelsUnique
       }
       updateMessage(message, update)
       .then(() => {
@@ -252,6 +297,7 @@ router.post("/labels/add/:id", function(req, res, next) {
             update
           })
           .then(() => debug('pubished update', message.id))
+          .catch(error => next(error))
       })
     })
     .catch(err => {
@@ -284,6 +330,7 @@ router.post("/labels/delete/:id", function(req, res, next) {
             update
           })
           .then(() => debug('pubished update', message.id))
+          .catch(error => next(error))
       })
     })
     .catch(err => {

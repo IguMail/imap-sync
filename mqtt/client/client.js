@@ -3,51 +3,56 @@ const mqttTransport = require("../lib/mqtt");
 const crypto = require("crypto");
 const hat = require("hat");
 const store = require('../../store/store');
+const { getUserByAccountId, getUserById } = require('../../store/adapters/api')
+
 const debug = require("debug")("mail-sync:client");
 
-var MQTT_HOST = process.env.MQTT_HOST || "mqtt://broker.hivemq.com";
-var userId = process.env.USERID || '107051418222637953650'; // mocked from db
-var channelId = 'client/' + userId
+const isDev = process.env.NODE_ENV === 'development'
+
+const MQTT_HOST = process.env.MQTT_HOST || "mqtt://broker.hivemq.com";
+const userId = process.env.USERID;
+const accountId = process.env.ACCOUNTID || (isDev && 'gabe@fijiwebdesign.com');
+
+if (!userId && !accountId) {
+  throw new Error('Please supply a USERID or ACCOUNTID')
+}
 
 start()
 
 function start() {
-  getUserById(userId).then(user => {
+  (userId ? getUserById(userId) : getUserByAccountId(accountId)).then(user => {
     if (!user) throw new Error('User not found')
     connect(user)
   })
   .catch(error => debug('Error getUserById', error))
 }
 
-function getUserById(userId) {
-  return store.find('user', userId)
-}
-
 function connect(user) {
 
-  var mqttOptions = {
+  const mqttOptions = {
     clientId: user.id,
     username: user.id,
     password: user.user.xOAuth2Token
   }
 
   debug('Connecting to ', MQTT_HOST, 'as', user.id)
-  var client = mqtt.connect(MQTT_HOST, mqttOptions);
-  var transport = new mqttTransport({
+  const client = mqtt.connect(MQTT_HOST, mqttOptions);
+  const transport = new mqttTransport({
     id: 'channelId',
     client
   });
 
-  transport.on("connect", () => onConnected(transport));
+  transport.on("connect", () => onConnected(transport, user));
 }
 
-function onConnected(transport) {
+function onConnected(transport, user) {
   debug('Connected to server')
-  var channel = transport.channel(channelId);
-  subscribe(channel)
+  const channelId = 'client/' + user.id
+  const channel = transport.channel(channelId);
+  subscribe(channel, user)
 }
 
-function subscribe(channel) {
+function subscribe(channel, user) {
   debug("On secure channel");
   channel.subscribe("imap", () => {
     debug("connected to mail sync broker");
@@ -70,8 +75,14 @@ function subscribe(channel) {
       debug("Re-Authentication required");
     }
   });
+  channel.subscribe("mail/action", entry => {
+    debug('mail action', entry)
+  });
+  channel.subscribe("mail/saved", entry => {
+    debug('mail saved', entry.id, entry.subject)
+  });
 
   setTimeout(
-    () => channel.publish("imap/sync", { userId }),
+    () => channel.publish("imap/sync", { userId: user.id }),
     500)
 }
