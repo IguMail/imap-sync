@@ -4,25 +4,23 @@ const mqttTransport = require("../mqtt/lib/mqtt");
 const MailEventEmitter = require('events').EventEmitter;
 const config = require('../mqtt/config')
 
-const MQTT_HOST = process.env.MQTT_HOST || "mqtt://broker.hivemq.com";
-const MQTT_PORT = process.env.MQTT_PORT || 1883;
 const uid = require('hat')(128)
 
 let client, transport
 
-function createClient() {
-  debug("Connecting to host", MQTT_HOST);
+function createClient(url) {
+  debug("Connecting to mqtt url", url);
   const mqttOptions = {
     clientId: 'publisher-' + uid,
     username: 'publisher',
     password: config.publisher.accessToken
   }
-  return mqtt.connect(MQTT_HOST, mqttOptions)
+  return mqtt.connect(url, mqttOptions)
 }
 
-function connect() {
+function connect(url) {
   if (!client) {
-    client = createClient()
+    client = createClient(url)
     transport = new mqttTransport({ id: "store", client })
     return new Promise(
       resolve => transport.on("connect", () => resolve(transport))

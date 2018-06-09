@@ -4,12 +4,13 @@ const crypto = require("crypto");
 const hat = require("hat");
 const store = require('../../store/store');
 const { getUserByAccountId, getUserById } = require('../../store/adapters/api')
+const config = require('../config')
 
 const debug = require("debug")("mail-sync:client");
 
 const isDev = process.env.NODE_ENV === 'development'
 
-const MQTT_HOST = process.env.MQTT_HOST || "mqtt://broker.hivemq.com";
+const MQTT_HOST = process.env.MQTT_HOST || config.mqtt.url;
 const userId = process.env.USERID;
 const accountId = process.env.ACCOUNTID || (isDev && 'gabe@fijiwebdesign.com');
 

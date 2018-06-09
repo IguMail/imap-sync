@@ -12,8 +12,7 @@ const config = require('../config')
 const { generateMailHash, getDeliveredTo } = require('../lib/utils')
 const striptags = require('striptags')
 
-const MQTT_HOST = process.env.MQTT_HOST || "mqtt://broker.hivemq.com";
-const MQTT_PORT = process.env.MQTT_PORT || 1883;
+const MQTT_HOST = process.env.MQTT_HOST || config.mqtt.url
 const uid = require('hat')(128)
 const mailboxRecursionDepth = 2
 

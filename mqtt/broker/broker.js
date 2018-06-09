@@ -1,17 +1,21 @@
+var mqtt = require('mqtt')
 var mosca = require('mosca')
 var debug = require('debug')('mail-sync:broker')
 var config = require('../config')
 var authenticator = require('./authenticator')
+var url = require('url')
 
-var PORT = parseInt(process.env.PORT || 1883, 10)
+var mqttUrl = url.parse(config.mqtt.url)
+var HOST = process.env.HOST || mqttUrl.hostname
+var PORT = parseInt(process.env.PORT || mqttUrl.port || 1883, 10)
 
 var backend = {
   mqtt: {
     type: 'mqtt',
     json: false,
-    mqtt: require('mqtt'),
-    host: '127.0.0.1',
-    port: 1883
+    mqtt,
+    host: HOST,
+    port: PORT
   },
   mongo: {
     //using ascoltatore
@@ -42,7 +46,7 @@ var server = new mosca.Server(moscaSettings)
 Object.assign(server, authenticator)
 
 server.on('ready', function() {
-  debug('Mosca server is up and running on port ', PORT)
+  debug('Mosca server is up and running on port mqtt://%s:%s', HOST, PORT)
 })
 
 server.on('clientConnected', function(client) {

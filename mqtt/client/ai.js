@@ -12,7 +12,7 @@ const mqttOptions = {
   password: accessToken
 }
 
-const MQTT_HOST = process.env.MQTT_HOST || "mqtt://broker.hivemq.com";
+const MQTT_HOST = process.env.MQTT_HOST || config.mqtt.url;
 const client = mqtt.connect(MQTT_HOST, mqttOptions);
 const userId = 'ai'
 const transport = new mqttTransport({

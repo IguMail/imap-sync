@@ -19,7 +19,7 @@ const debug = require('debug')('mail-sync:messages/')
 function publish(topic, payload) {
   const { account } = payload.message
   return publisher
-    .connect()
+    .connect(config.mqtt.url)
     .then(
       transport => {
         return Promise.all([
