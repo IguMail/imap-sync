@@ -12,11 +12,12 @@ function findAllMessagesFromReq(req, filter = {}) {
   return new Promise((resolve, reject) => {
     const offset = req.query.offset || 0
     const limit = req.query.limit || 50
+    const orderBy = req.query.orderBy && [ req.query.orderBy, req.query.order || 'ASC' ]
     let query = {
       offset,
       limit,
       orderBy: [
-        ['receivedDate', 'DESC']
+        orderBy || ['receivedDate', 'DESC']
       ],
       where: {}
     };
@@ -72,7 +73,12 @@ const getTheadId = (message) => {
 }
 
 function findTheadMessages(req, message) {
-  return findAllMessagesFromReq(req, getThreadFilter(message))
+  const filter = getThreadFilter(message)
+  if (!req.query.orderBy) {
+    req.query.orderBy = 'receivedDate'
+    req.query.order = 'ASC'
+  }
+  return findAllMessagesFromReq(req, filter)
 }
 
 function getMessageListFormat(messages) {

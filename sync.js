@@ -75,11 +75,19 @@ function imapReady() {
       self.currentMailbox = mailbox;
       self.emit("mailbox", mailbox);
       if (self.fetchUnreadOnStart) {
-        imapSync.call(self);
+        self.fetchNewMail()
       }
-      self.imap.on("mail", imapSync.bind(self));
+      self.imap.on("mail", () => self.fetchNewMail());
     }
   });
+}
+
+function imapClose() {
+  this.emit("disconnected");
+}
+
+function imapError(err) {
+  this.emit("error", err);
 }
 
 MailSync.prototype.fetch = function(uids) {
@@ -92,16 +100,13 @@ MailSync.prototype.fetch = function(uids) {
   });
 };
 
-function imapClose() {
-  this.emit("disconnected");
-}
-
-function imapError(err) {
-  this.emit("error", err);
-}
-
-function imapSync() {
+MailSync.prototype.fetchNewMail = function() {
   var self = this;
+
+  if (this.imap.state === 'disconnected' || !this.currentMailbox) {
+    throw new Error('Fetch new mail requires client to be connected to a mailbox')
+  }
+
   var getInitialUid = () => {
     return Math.max(this.currentMailbox.uidnext - self.fetchLimitInitial, 1);
   }

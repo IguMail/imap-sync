@@ -20,6 +20,9 @@ const mailEmitter = new MailEventEmitter();
 
 // MQTT Client 
 let client, transport
+const mailSyncs = new Map()
+
+global.mailSyncs = mailSyncs // debugging
 
 connect()
 
@@ -59,7 +62,24 @@ function syncMailAccount(channel, user) {
   channel.publish("imap", {
     state: "connecting"
   });
-  createMailSync(user, channel, 'INBOX', mailboxRecursionDepth);
+
+  // create a mail sync
+  if (!mailSyncs.has(user)) {
+    debug('Creating a new mail sync for user', user)
+    mailSyncs.set(user, createMailSync(user, channel, 'INBOX', mailboxRecursionDepth))
+  // start existing if stopped
+  } else {
+    debug('Existing mail sync for user', user)
+    const sync = mailSyncs.get(user)
+    if (sync.imap.state === 'disconnected') {
+      debug('MailSync disconnected, connect')
+      sync.start()
+    } else {
+      debug('MailSync already connected')
+      sync.fetchNewMail()
+    }
+  }
+  
 }
 
 function syncBoxes(boxes, path, cb, recursionDepth = 0) {
@@ -93,6 +113,7 @@ function createMailSync(user, pubsub, mailbox, recursionDepth = 0) {
   });
 
   mailSync.start(); // start listening
+  mailSync.children = new Map() // child mailbox connections
 
   mailSync.on("connected", function() {
     debug("imapConnected");
@@ -103,7 +124,7 @@ function createMailSync(user, pubsub, mailbox, recursionDepth = 0) {
     if (recursionDepth) {
       imap.getSubscribedBoxes((err, boxes, path) => {
         syncBoxes(user, boxes, path, boxPath => {
-          createMailSync(user, pubsub, boxPath, 0)
+          mailSync.children.set(boxPath, createMailSync(user, pubsub, boxPath, 0))
         }, recursionDepth--)
       })
     }

@@ -1,4 +1,4 @@
 /**
  * Sync IMAP
  */
-module.exports = requir("./sync");
+module.exports = require("./sync");

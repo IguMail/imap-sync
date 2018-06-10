@@ -1,5 +1,6 @@
 // Use Container instead of DataStore on the server
-const Container = require("js-data").DataStore;
+// DataStore uses in-memory caching which can lead to stale results
+const Container = require("js-data").Container;
 const adapter = require("./adapters/rethinkdb");
 
 // Create a store to hold your Mappers

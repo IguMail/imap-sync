@@ -43,11 +43,11 @@ function connect(user) {
     client
   });
 
-  transport.on("connect", () => onConnected(transport, user));
+  transport.once("connect", () => createChannel(transport, user));
 }
 
-function onConnected(transport, user) {
-  debug('Connected to server')
+function createChannel(transport, user) {
+  debug('Subscribing to server')
   const channelId = 'client/' + user.id
   const channel = transport.channel(channelId);
   subscribe(channel, user)
