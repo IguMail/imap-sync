@@ -1,3 +1,4 @@
+var http = require('http')
 var mqtt = require('mqtt')
 var mosca = require('mosca')
 var debug = require('debug')('mail-sync:broker')
@@ -8,6 +9,7 @@ var url = require('url')
 var mqttUrl = url.parse(config.mqtt.url)
 var HOST = process.env.HOST || mqttUrl.hostname
 var PORT = parseInt(process.env.PORT || mqttUrl.port || 1883, 10)
+var WS_PORT = parseInt(process.env.WSPORT || config.mqtt.wsPort || 8883, 10)
 
 var backend = {
   mqtt: {
@@ -42,11 +44,17 @@ var moscaSettings = {
 }
 
 var server = new mosca.Server(moscaSettings)
+var httpServer = http.createServer()
+server.attachHttpServer(httpServer)
+
+httpServer.listen(WS_PORT, () => {
+  debug('Mosca mqtt over websocket listening at ws://%s:%s', HOST, WS_PORT)
+})
 
 Object.assign(server, authenticator)
 
 server.on('ready', function() {
-  debug('Mosca server is up and running on port mqtt://%s:%s', HOST, PORT)
+  debug('Mosca mqtt server listening at mqtt://%s:%s', HOST, PORT)
 })
 
 server.on('clientConnected', function(client) {

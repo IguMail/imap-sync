@@ -55,10 +55,10 @@ function createChannel(transport, user) {
 
 function subscribe(channel, user) {
   debug("On secure channel");
-  channel.subscribe("imap", () => {
+  channel.subscribe("imap/connected", () => {
     debug("connected to mail sync broker");
   });
-  channel.subscribe("imap/connected", message => {
+  channel.subscribe("imap/mailbox", message => {
     debug("connected to mailbox", message);
   });
   channel.subscribe("imap/mail", ({ mail, headers, attributes }) => {
