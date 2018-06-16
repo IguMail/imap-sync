@@ -1,6 +1,6 @@
 var router = require('express').Router();
 
-function getRouter(passport, scope, secret) {
+function getRouter(passport, scope, secret, state) {
   // GET /auth/google
   //   Use passport.authenticate() as route middleware to authenticate the
   //   request.  The first step in Google authentication will involve
@@ -8,7 +8,7 @@ function getRouter(passport, scope, secret) {
   //   will redirect the user back to this application at /auth/google/callback
   router.get(
     "/",
-    passport.authenticate("google", { scope })
+    passport.authenticate("google", { scope }, state)
   );
 
   // GET /auth/google/callback
@@ -21,9 +21,9 @@ function getRouter(passport, scope, secret) {
     passport.authenticate("google", {
       failureRedirect: "/"
     }),
-    function(req, res) {
+    function(req, res, next) {
       // Auth success
-      return res.redirect("/");
+      next()
     }
   );
 
