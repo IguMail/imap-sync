@@ -32,7 +32,7 @@ passport.serializeUser(function(user, done) {
     account: user.email,
     sessionToken
   }
-  store.create('user', entry)
+  store.create('account', entry)
     .then(entry => {
       debug('saved user', entry)
       done(null, entry.id)
@@ -45,7 +45,7 @@ passport.serializeUser(function(user, done) {
 
 passport.deserializeUser(function(id, done) {
   debug('deserializeUser', id)
-  store.find('user', id)
+  store.find('account', id)
     .then(entry => {
       debug('found user', entry)
       done(null, entry)

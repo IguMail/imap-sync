@@ -10,6 +10,7 @@ store.registerAdapter("rethinkdb", adapter, { default: true });
 store.defineMapper("message");
 store.defineMapper("attachment");
 store.defineMapper("user");
+store.defineMapper("account");
 
 // expose adapter so you can create custom queries
 store.adapter = adapter

@@ -116,51 +116,24 @@ function streamAttachment(attachment, res) {
   res.send(attachment.content)
 }
 
-function buildAccountsQueryFromReq(req, filter = {}) {
-  return new Promise((resolve, reject) => {
-    const offset = req.query.offset || 0
-    const limit = req.query.limit || 50
-    let query = {
-      offset,
-      limit,
-      orderBy: [
-        ['createdOn', 'DESC']
-      ],
-      where: {}
-    };
-    if (filter) {
-      if (typeof filter === 'function') {
-        debug('got filter function', filter)
-        query.filter = filter
-      } else {
-        query.where = Object.assign(query.where, filter);
-      }
-    }
-    if (req.query.messageId) {
-      query.where.messageId = {
-        '==': req.query.messageId
-      }
-    }
-    if (req.query.since) {
-      store
-        .find("user", req.query.since)
-        .then(account => {
-          if (account) {
-            query.where.createdOn = {
-              '>=': account.createdOn
-            }
-          } else {
-            reject({err: 'Invalid since parameter'});
-          }
-          resolve(query)
-        })
-        .catch(err => {
-          debug("Error", err);
-        });
-    } else {
-      resolve(query)
-    }
-  })
+/**
+ * Build js-data query for accounts
+ * @param {object} query
+ */
+function buildAccountsQuery(query) {
+  const offset = query.offset || 0
+  const limit = query.limit || 50
+  const where = query.where
+  const orderBy = query.orderBy || 'id'
+  const order = query.order || 'ASC'
+  return {
+    offset,
+    limit,
+    orderBy: [
+      [orderBy, order]
+    ],
+    where
+  };
 }
 
 module.exports = {
@@ -174,5 +147,5 @@ module.exports = {
   getMessageFormat,
   getMessageListDebugFormat,
   streamAttachment,
-  buildAccountsQueryFromReq
+  buildAccountsQuery
 }
