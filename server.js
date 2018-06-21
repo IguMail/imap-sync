@@ -125,6 +125,7 @@ app.use('/auth/google/callback',
       const url = new URL(returnUrl)
       url.searchParams.append('userId', req.session.passport.user)
       url.searchParams.append('accessToken', req.user.accessToken)
+      url.searchParams.append('email', req.user.email)
       res.redirect(url)
     } else {
       res.redirect("/account")
