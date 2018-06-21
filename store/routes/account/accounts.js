@@ -6,7 +6,8 @@ const {
   buildAccountsQueryFromReq
 } = require('../utils')
 const { getUserByAccountId } = require('../../adapters/api')
-const rethinkDBAdapter = store.rethinkDBAdapter
+const jwt = require("jsonwebtoken")
+const secret = require("../../../config/secret").secret
 
 router.get("/:account/accounts", function(req, res) {
   const account = req.params.account
@@ -28,6 +29,41 @@ router.get("/:account/accounts", function(req, res) {
       debug("Error", err);
       res.json(err);
     });
+});
+
+router.post("/:account/create", function(req, res, next) {
+  var user = req.body
+  if (!user || !user.email || !user.password) {
+    throw new Error(`
+      User format required in POST body
+      {
+        email, 
+        password, 
+        imap { host, port, protocol }, 
+        imap { host, port, protocol }
+      }
+    `)
+  }
+  const account = {
+    account: req.params.account,
+    createdOn: new Date(),
+    sessionToken: jwt.sign({ id: user.id }, secret, {
+      expiresIn: 86400 // expires in 24 hours
+    }),
+    type: 'custom',
+    user
+  }
+  store.create('user', account)
+    .then(entry => {
+      debug('saved user', entry)
+      res.json({
+        entry
+      })
+    })
+    .catch(err => {
+      debug('Error saving user', err)
+      next(err)
+    })
 });
 
 router.get("/:account/accounts/:email", function(req, res) {
