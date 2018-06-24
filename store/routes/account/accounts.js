@@ -43,8 +43,8 @@ router.get("/:account/accounts", function(req, res) {
     });
 });
 
-// create a custom account (IMAP/SMTP)
-router.post("/:account/create", function(req, res, next) {
+// create a user account
+router.post("/:account/profile/create", function(req, res, next) {
   var user = req.body
   if (!user || !user.email || !user.password) {
     throw new Error(`
@@ -52,9 +52,7 @@ router.post("/:account/create", function(req, res, next) {
       {
         name,
         email, 
-        password, 
-        imap { host, port, protocol }, 
-        imap { host, port, protocol }
+        password,
       }
     `)
   }
@@ -67,7 +65,7 @@ router.post("/:account/create", function(req, res, next) {
     type: 'custom',
     user
   }
-  store.create('account', account)
+  store.create('user', account)
     .then(entry => {
       debug('saved user', entry)
       res.json({
@@ -76,6 +74,40 @@ router.post("/:account/create", function(req, res, next) {
     })
     .catch(err => {
       debug('Error saving user', err)
+      next(err)
+    })
+});
+
+// add a custom mail account (IMAP/SMTP)
+router.post("/:account/add", function(req, res, next) {
+  var user = req.body
+  if (!user || !user.email || !user.password) {
+    throw new Error(`
+      Mail account format required in POST body
+      {
+        name,
+        email, 
+        password, 
+        imap { host, port, protocol }, 
+        imap { host, port, protocol }
+      }
+    `)
+  }
+  const account = {
+    account: req.params.account,
+    createdOn: new Date(),
+    type: 'custom',
+    user
+  }
+  store.create('account', account)
+    .then(entry => {
+      debug('saved mail account', entry)
+      res.json({
+        entry
+      })
+    })
+    .catch(err => {
+      debug('Error saving mail account', err)
       next(err)
     })
 });
