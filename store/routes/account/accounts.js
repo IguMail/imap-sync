@@ -44,15 +44,15 @@ router.get("/:account/accounts", function(req, res) {
 });
 
 // create a user account
-router.post("/:account/profile/create", function(req, res, next) {
+router.post("/:account/create/profile", function(req, res, next) {
   var user = req.body
-  if (!user || !user.email || !user.password) {
+  if (!user || !user.phone || !user.pin) {
     throw new Error(`
       User format required in POST body
       {
         name,
-        email, 
-        password,
+        phone, 
+        pin,
       }
     `)
   }
@@ -79,7 +79,7 @@ router.post("/:account/profile/create", function(req, res, next) {
 });
 
 // add a custom mail account (IMAP/SMTP)
-router.post("/:account/add", function(req, res, next) {
+router.post("/:account/create/mailbox", function(req, res, next) {
   var user = req.body
   if (!user || !user.email || !user.password) {
     throw new Error(`
