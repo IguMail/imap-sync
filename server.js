@@ -98,32 +98,31 @@ app.use(passport.session());
 // google passport auth
 app.use('/auth/google', 
   function(req, res, next) {
-    debug('Query returnUrl', req.query.returnUrl, req.cookies, req.sessionID)
+    debug('/auth/google Query', req.query, 'sessionID', req.sessionID)
     if (req.query.returnUrl) {
       req.session.returnUrl = req.query.returnUrl
     }
     if (req.query.accountId) {
       req.session.accountId = req.query.accountId
     }
-    const scope = authConfig.google.scope
-    const state = req.query.returnUrl
-    passport.authenticate("google", { scope }, state)(req, res, next)
-  }
-)
-// google passport auth callback
-app.use('/auth/google/callback',
-  function(req, res, next) {
-    passport.authenticate("google", {
-      failureRedirect: "/"
-    })(req, res, next)
     next()
   },
-  // TODO: fix!! TokenError: Code was already redeemed.
   function(req, res, next) {
+    debug('/auth/google passport.authenticate', req.query, 'sessionID', req.sessionID)
+    passport.authenticate("google", {
+      accessType: 'offline',
+      prompt: 'consent',
+    })(req, res, next)
+  }
+)
+
+// google passport auth callback
+app.get('/auth/google/callback',
+  function(req, res, next) {
+    debug('/auth/google/callback Session', req.session, 'Query', req.query)
     const returnUrl = req.session.returnUrl || req.query.state
     const accountId = req.session.accountId
     const userId = req.session.passport.user
-    debug('Session', req.session, 'Query', req.query)
     if (returnUrl) {
       store.find('account', userId)
         .then(user => {
@@ -144,7 +143,7 @@ app.use('/auth/google/callback',
       res.redirect("/account")
     }
   }
-);
+)
 
 // Simple route middleware to ensure user is authenticated.
 function ensureAuthenticated(req, res, next) {
