@@ -58,10 +58,8 @@ passport.deserializeUser(function(id, done) {
 
 // default URL
 authConfig.google.callbackURL = BASE_URL + '/auth/google/callback'
-
 // wildcard magic dns
-authConfig.google.callbackURL = 'http://' + HOST + '.nip.io:5000/auth/google/callback'
-
+authConfig.google.callbackURL = 'http://' + HOST + ':5000/auth/google/callback'
 
 if (process.env.NODE_ENV === 'production') {
   authConfig.google.callbackURL = 'https://auth.igumail.com/auth/google/callback'
@@ -104,6 +102,9 @@ app.use('/auth/google',
     if (req.query.returnUrl) {
       req.session.returnUrl = req.query.returnUrl
     }
+    if (req.query.accountId) {
+      req.session.accountId = req.query.accountId
+    }
     const scope = authConfig.google.scope
     const state = req.query.returnUrl
     passport.authenticate("google", { scope }, state)(req, res, next)
@@ -118,15 +119,27 @@ app.use('/auth/google/callback',
     next()
   },
   // TODO: fix!! TokenError: Code was already redeemed.
-  function(req, res) {
+  function(req, res, next) {
     const returnUrl = req.session.returnUrl || req.query.state
-    debug('Session returnUrl', req.session.returnUrl, req.query.state)
+    const accountId = req.session.accountId
+    const userId = req.session.passport.user
+    debug('Session', req.session, 'Query', req.query)
     if (returnUrl) {
-      const url = new URL(returnUrl)
-      url.searchParams.append('userId', req.session.passport.user)
-      url.searchParams.append('accessToken', req.user.accessToken)
-      url.searchParams.append('email', req.user.email)
-      res.redirect(url)
+      store.find('account', userId)
+        .then(user => {
+          if (accountId) {
+            user.account = accountId
+            return user.save()
+          } else {
+            return user
+          }
+        })
+        .then(user => {
+          const url = new URL(returnUrl)
+          url.searchParams.append('user', JSON.stringify(user))
+          res.redirect(url)
+        })
+        .catch(error => next(error))
     } else {
       res.redirect("/account")
     }
