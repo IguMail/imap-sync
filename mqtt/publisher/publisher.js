@@ -42,7 +42,7 @@ function onConnected(transport) {
   debug("Server connected, subscribing...")
   transport.subscribe("client/+/imap/sync", ({userId}) => {
     debug('Sync requested by ', userId)
-    findUser(userId)
+    findAccount(userId)
       .then(user => {
         const channelId = 'client/' + user.id
         debug('creating channel', channelId)
@@ -53,9 +53,9 @@ function onConnected(transport) {
   })
 }
 
-function findUser(userId) {
+function findAccount(userId) {
   debug('Finding user', userId)
-  return store.find('user', userId)
+  return store.find('account', userId)
 }
 
 function syncMailAccount(channel, user) {
@@ -219,11 +219,12 @@ mailEmitter.on('imap/mail', ({ pubsub, user, mail, seqno, attributes }) => {
     return store.create('message', { 
       messageId,
       deliveredTo: deliveredTo,
-      account: deliveredTo[0], // TODO: fix get from OAuth or user/pass
+      account: user.account, // TODO: fix get from OAuth or user/pass
       receivedDate,
       subject,
       mail,
       hash,
+      seqno,
       attributes 
     })
   }
