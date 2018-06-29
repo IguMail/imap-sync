@@ -63,6 +63,11 @@ MailSync.prototype.stop = function() {
   this.imap.end();
 };
 
+MailSync.prototype.restart = function() {
+  this.imap.end();
+  this.imap.connect();
+};
+
 function imapReady() {
   var self = this;
 

@@ -3,7 +3,7 @@ const express = require('express')
 const router = express.Router()
 const store = require("../../store")
 const debug = require('debug')('mail-sync:account/accounts')
-const { getUserByAccountId } = require('../../adapters/api')
+const { getMailAccountByAccountIdAndEmail } = require('../../adapters/api')
 const rethinkDBAdapter = store.rethinkDBAdapter
 
 router.post("/:account/sendmail/:email", async function(req, res, next) {
@@ -15,7 +15,7 @@ router.post("/:account/sendmail/:email", async function(req, res, next) {
   if (!mail) return next(new Error('Mail "mail" required in JSON post body'))
   if (!mail.to) return next(new Error('Mail "mail.to" required in JSON post body'))
 
-  const userAccount = await getUserByAccountId(account, email)
+  const userAccount = await getMailAccountByAccountIdAndEmail(account, email)
   if (!userAccount || !userAccount.user) return next(new Error('Coult not find user'))
   const user = userAccount.user
 

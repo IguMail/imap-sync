@@ -11,6 +11,7 @@ const imapConfig = require("../../config/imap");
 const config = require('../config')
 const { generateMailHash, getDeliveredTo } = require('../lib/utils')
 const striptags = require('striptags')
+const api = require('../../store/adapters/api')
 
 const MQTT_HOST = process.env.MQTT_HOST || config.mqtt.url
 const uid = require('hat')(128)
@@ -54,7 +55,7 @@ function onConnected(transport) {
 }
 
 function findAccount(userId) {
-  debug('Finding user', userId)
+  debug('Finding mail account', userId)
   return store.find('account', userId)
 }
 
@@ -146,10 +147,29 @@ function createMailSync(user, pubsub, mailbox, recursionDepth = 0) {
   mailSync.on("error", function(error) {
     debug("Error", error);
     pubsub.publish("imap/error", { error });
+    // todo: backoff timer
     if (error && error.source === 'timeout') {
       setTimeout(() => {
-        mailSync.start()
+        mailSync.restart()
       }, 5000)
+    }
+    if (error && error.source === 'authentication') {
+      const { refreshToken, email } = user.user
+      debug('Refreshing token for user', user)
+      api.refreshToken('google', refreshToken, function(err, accessToken, refreshToken) {
+        if (err) {
+          debug('Failed to refresh token', err, accessToken, refreshToken)
+        }
+        debug('Refreshed token', accessToken, refreshToken)
+        user.accessToken = accessToken
+        user.xOAuth2Token = api.buildXOAuth2Token(email, accessToken)
+        mailSync.imap._config.xoauth2 = user.xOAuth2Token // TODO: create new imap instance
+        user.updatedAt = new Date()
+        user.save()
+          .then(() => {
+            mailSync.restart()
+          })
+      })
     }
   });
 
@@ -277,9 +297,10 @@ mailEmitter.on('mail/saved', ({ pubsub, entry }) => {
 function handleAppExit(options, err) {
   if (err) {
     console.error("App exited due to error", err);
+    client.publish("app/error", err);
   }
   if (options.cleanup) {
-    client.publish("mail/connected", "false");
+    client.publish("mail/connected", false);
   }
   if (options.exit) {
     process.exit();

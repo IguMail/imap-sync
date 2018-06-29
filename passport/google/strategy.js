@@ -1,4 +1,5 @@
 var GoogleStrategy = require("passport-google-oauth").OAuth2Strategy;
+var { buildXOAuth2Token } = require('../../store/adapters/api')
 
 function getStrategy(authOptions, cb) {
   // Use the GoogleStrategy within Passport.
@@ -47,12 +48,6 @@ function getStrategy(authOptions, cb) {
   )
 
   return strategy
-}
-
-// convert email, access_token to xoauth token
-function buildXOAuth2Token(email, accessToken) {
-  let authData = ["user=" + email, "auth=Bearer " + accessToken, "", ""];
-  return Buffer.from(authData.join("\x01"), "utf-8").toString("base64");
 }
 
 module.exports = getStrategy;
