@@ -1,6 +1,8 @@
 var GoogleStrategy = require("passport-google-oauth").OAuth2Strategy;
 var { buildXOAuth2Token } = require('../../store/adapters/api')
 
+console.log('loaded google strategy')
+
 function getStrategy(authOptions, cb) {
   // Use the GoogleStrategy within Passport.
   //   Strategies in Passport require a `verify` function, which accept

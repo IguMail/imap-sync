@@ -3,8 +3,20 @@ const express = require('express')
 const router = express.Router()
 const store = require("../../store")
 const debug = require('debug')('mail-sync:account/accounts')
-const { getMailAccountByAccountIdAndEmail } = require('../../adapters/api')
-const rethinkDBAdapter = store.rethinkDBAdapter
+const { getMailAccountByAccountIdAndEmail, refreshToken } 
+  = require('../../adapters/api')
+
+function mapNodemailerServiceToPassportProvider(service) {
+  const serviceMap = {
+    'Gmail': 'google'
+  }
+  return serviceMap[service] || service
+}
+
+function setAccessToken(userAccount, accessToken) {
+  userAccount.user.accessToken = accessToken
+  return userAccount.save()
+}
 
 router.post("/:account/sendmail/:email", async function(req, res, next) {
   const account = req.params.account
@@ -22,14 +34,24 @@ router.post("/:account/sendmail/:email", async function(req, res, next) {
   const transportOptions = {
     service: user.service,
     auth: {
-      type: 'OAuth2',
-      user: user.email,
-      accessToken: user.accessToken
+      type: 'OAuth2'
     }
   }
   
   // create reusable transporter object using the default SMTP transport
-  let transporter = nodemailer.createTransport(transportOptions);
+  const transporter = nodemailer.createTransport(transportOptions);
+
+  transporter.set('oauth2_provision_cb', (email, renew, callback) => {
+    const provider = mapNodemailerServiceToPassportProvider(transportOptions.service)
+    debug('oauth2_provision_cb', { email, provider, renew })
+    refreshToken(provider, user.refreshToken, (err, accessToken) => {
+      debug('received new accesstoken', { err, accessToken })
+      if (!err && accessToken) {
+        setAccessToken(userAccount, accessToken)
+      }
+      callback(err, accessToken)
+    })
+  });
 
   debug('Mail transport', transportOptions)
 
@@ -39,11 +61,17 @@ router.post("/:account/sendmail/:email", async function(req, res, next) {
   }
   
   // setup email data with unicode symbols
-  let mailOptions = {
+  const mailOptions = {
     ...mail,
     from: `"${user.displayName}" <${user.email}>`, // sender address
-    replyTo: user.email
+    replyTo: user.email,
+    auth: {
+      user: user.email,
+      accessToken: user.accessToken
+    }
   };
+
+  debug('Sending mail', mailOptions)
   
   // send mail with defined transport object
   transporter.sendMail(mailOptions, (error, info) => {

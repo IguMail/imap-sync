@@ -4,11 +4,6 @@ const googleStrategy = require('../../passport/google/strategy')
 const authConfig = require("../../config/auth")
 const debug = require('debug')('mail-sync:store:api')
 
-var strategy = googleStrategy(authConfig.google, profile => {
-  debug('received profile', profile)
-})
-refresh.use(strategy)
-
 function getUserById(userId) {
   debug('getUserById', userId)
   return store.find('user', userId)
@@ -66,8 +61,13 @@ function updateMessage(message, update) {
   return message.save()
 }
 
-function refreshToken(provider, token, cb) {
-  refresh.requestNewAccessToken(provider, token, cb)
+function refreshToken(provider, refreshToken, cb) {
+  var strategy = googleStrategy(authConfig.google, profile => {
+    debug('received profile', profile)
+  })
+  refresh.use(strategy)
+  debug('requesting new accessToken', { provider, refreshToken })
+  refresh.requestNewAccessToken(provider, refreshToken, cb)
 }
 
 // convert email, access_token to xoauth token
