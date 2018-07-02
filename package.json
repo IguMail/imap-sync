@@ -11,7 +11,7 @@
     "dev:mqtt:publisher": "NODE_ENV=development DEBUG=mail* nodemon mqtt/publisher/publisher.js",
     "dev:mqtt:client": "NODE_ENV=development DEBUG=mail* nodemon mqtt/client/client.js",
     "dev:mqtt:ai": "NODE_ENV=development DEBUG=mail* nodemon mqtt/client/ai.js",
-    "debug:mqtt:server": "NODE_ENV=development DEBUG=mail* nodemon -- --inspect mqtt/server/server.js",
+    "debug:mqtt:publisher": "NODE_ENV=development DEBUG=mail* nodemon -- --inspect mqtt/publisher/publisher.js",
     "debug:mqtt:client": "NODE_ENV=development DEBUG=mail* nodemon -- --inspect mqtt/client/client.js",
     "debug:mqtt:ai": "NODE_ENV=development DEBUG=mail* nodemon -- --inspect mqtt/client/ai.js",
     "server": "node server.js",
@@ -21,7 +21,7 @@
     "pm2:mail:server": "NODE_ENV=production PORT=8030 pm2 start server.js --name mail:server",
     "pm2:mail:store": "PORT=3030 pm2 start store/server.js --name mail:store",
     "pm2:mqtt:broker": "pm2 start mqtt/broker/broker.js --name mail:mqtt:broker",
-    "pm2:mqtt:server": "pm2 start mqtt/server/server.js --name mail:mqtt:server"
+    "pm2:mqtt:publisher": "pm2 start mqtt/publisher/publisher.js --name mail:mqtt:pub"
   },
   "keywords": [
     "imap",
