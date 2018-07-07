@@ -4,6 +4,8 @@ var debug = require('debug')('mail-sync:broker:auth')
 // provides authentication for mosca
 var Authenticator = {}
 
+// TODO: Enable Authentication
+
 // initial connection user/pass auth
 Authenticator.authenticate = function(client, username, password = '', callback) {
   debug('authenticate', client.id, username, password.toString())
@@ -22,7 +24,7 @@ Authenticator.authenticate = function(client, username, password = '', callback)
   if (authenticated) {
     client.username = username
   }
-  callback(null, authenticated);
+  callback(null, true);
 }
 
 // acl for publishing
@@ -51,7 +53,7 @@ Authenticator.authorizeSubscribe = function(client, topic, callback) {
     if (topic.indexOf('client/' + client.username) === 0) authorized = true
   }
   debug('authorizeSubscribe', client.id, topic, authorized)
-  callback(null, authorized);
+  callback(null, true);
 }
 
 module.exports = Authenticator

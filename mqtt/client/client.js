@@ -1,9 +1,6 @@
 const mqtt = require("mqtt");
 const mqttTransport = require("../lib/mqtt");
-const crypto = require("crypto");
-const hat = require("hat");
-const store = require('../../store/store');
-const { getUserByAccountId, getUserById } = require('../../store/adapters/api')
+const api = require('../../store/adapters/api')
 const config = require('../config')
 
 const debug = require("debug")("mail-sync:client");
@@ -21,7 +18,10 @@ if (!userId && !accountId) {
 start()
 
 function start() {
-  (userId ? getUserById(userId) : getUserByAccountId(accountId)).then(user => {
+  const getUser = userId 
+    ? api.getUserById(userId) 
+    : api.getUserByAccountId(accountId)
+  getUser.then(user => {
     if (!user) throw new Error('User not found')
     connect(user)
   })
@@ -48,7 +48,7 @@ function connect(user) {
 
 function createChannel(transport, user) {
   debug('Subscribing to server')
-  const channelId = 'client/' + user.id
+  const channelId = 'client/' + user.account
   const channel = transport.channel(channelId);
   subscribe(channel, user)
 }
@@ -61,8 +61,8 @@ function subscribe(channel, user) {
   channel.subscribe("imap/mailbox", message => {
     debug("connected to mailbox", message);
   });
-  channel.subscribe("imap/mail", ({ mail, headers, attributes }) => {
-    //debug("mail", mail, headers, attributes);
+  channel.subscribe("imap/mail", ({ mail }) => {
+    debug("mail", mail.subject);
   });
   channel.subscribe("imap/attachment", ({ mail, attachment }) => {
     //debug("attachment", mail, attachment);
@@ -84,6 +84,6 @@ function subscribe(channel, user) {
   });
 
   setTimeout(
-    () => channel.publish("imap/sync", { userId: user.id }),
-    500)
+    () => channel.publish("imap/sync", { username: user.account }),
+    2000)
 }

@@ -14,7 +14,7 @@ const striptags = require('striptags')
 const api = require('../../store/adapters/api')
 
 const MQTT_HOST = process.env.MQTT_HOST || config.mqtt.url
-const uid = require('hat')(128)
+const uid = require('hat')(64)
 const mailboxRecursionDepth = 2
 
 const mailEmitter = new MailEventEmitter();
@@ -41,22 +41,28 @@ function connect() {
 
 function onConnected(transport) {
   debug("Server connected, subscribing...")
-  transport.subscribe("client/+/imap/sync", ({userId}) => {
-    debug('Sync requested by ', userId)
-    findAccount(userId)
-      .then(user => {
-        const channelId = 'client/' + user.id
-        debug('creating channel', channelId)
-        const channel = transport.channel(channelId)
-        syncMailAccount(channel, user)
+  transport.subscribe("client/+/imap/sync", ({username, password}) => {
+    const accountId = username
+    const xOAuth2Token = password
+    debug('Sync requested by ', accountId, xOAuth2Token)
+    findAccounts(accountId)
+      .then(accounts => {
+        accounts.forEach(account => {
+          const channelId = 'client/' + account.account
+          debug('creating channel', channelId)
+          const channel = transport.channel(channelId)
+          syncMailAccount(channel, account)
+        })
       })
-      .catch(err => debug('Failed to find user', err))
+      .catch(err => debug('Failed to find accounts', err))
   })
 }
 
-function findAccount(userId) {
-  debug('Finding mail account', userId)
-  return store.find('account', userId)
+function findAccounts(accountId) {
+  debug('Finding mail accounts', accountId)
+  return store.findAll('account', {
+    account: accountId
+  })
 }
 
 function syncMailAccount(channel, user) {
@@ -83,16 +89,16 @@ function syncMailAccount(channel, user) {
   
 }
 
-function syncBoxes(boxes, path, cb, recursionDepth = 0) {
+function syncBoxes(user, boxes, path, cb, recursionDepth = 0) {
   const currBoxName = Object.keys(boxes).shift()
-  debug('syncBoxes', currBoxName, boxes, path)
+  debug('syncBoxes', { user, currBoxName, boxes, path })
   if (!path)
     path = '';
   for (let key in boxes) {
     const box = boxes[key]
     const boxPath = path + key
     if (box.children && recursionDepth)
-      syncBoxes(null, box.children, boxPath + box.delimiter, recursionDepth--)
+      syncBoxes(user, box.children, boxPath + box.delimiter, recursionDepth--)
     else {
       debug('boxName: ' + key);
       if (key === currBoxName) continue
@@ -102,8 +108,7 @@ function syncBoxes(boxes, path, cb, recursionDepth = 0) {
 }
 
 function createMailSync(user, pubsub, mailbox, recursionDepth = 0) {
-  debug("Authenticating: ", user.user.xOAuth2Token);
-  const mailSync = new MailSync({
+  const opts = {
     ...imapConfig,
     mailParserOptions: {
       streamAttachments: false // TODO: stream attachments
@@ -111,7 +116,10 @@ function createMailSync(user, pubsub, mailbox, recursionDepth = 0) {
     attachments: false, // never save attachments to file
     xoauth2: user.user.xOAuth2Token,
     mailbox
-  });
+  }
+  const mailSync = new MailSync(opts);
+
+  debug("MailSync Authenticating: ", opts);
 
   mailSync.start(); // start listening
   mailSync.children = new Map() // child mailbox connections
@@ -122,6 +130,7 @@ function createMailSync(user, pubsub, mailbox, recursionDepth = 0) {
 
     const imap = mailSync.imap
 
+    return // TODO: maybe recurse
     if (recursionDepth) {
       imap.getSubscribedBoxes((err, boxes, path) => {
         syncBoxes(user, boxes, path, boxPath => {
@@ -159,14 +168,16 @@ function createMailSync(user, pubsub, mailbox, recursionDepth = 0) {
       api.refreshToken('google', refreshToken, function(err, accessToken, refreshToken) {
         if (err) {
           debug('Failed to refresh token', err, accessToken, refreshToken)
+          return err
         }
         debug('Refreshed token', accessToken, refreshToken)
-        user.accessToken = accessToken
-        user.xOAuth2Token = api.buildXOAuth2Token(email, accessToken)
-        mailSync.imap._config.xoauth2 = user.xOAuth2Token // TODO: create new imap instance
-        user.updatedAt = new Date()
+        user.user.accessToken = accessToken
+        user.user.xOAuth2Token = api.buildXOAuth2Token(email, accessToken)
+        mailSync.imap._config.xoauth2 = user.user.xOAuth2Token // TODO: create new imap instance
+        user.user.updatedAt = new Date()
         user.save()
-          .then(() => {
+          .then(user => {
+            debug('Saved user with new token', user)
             mailSync.restart()
           })
       })
