@@ -308,10 +308,10 @@ mailEmitter.on('mail/saved', ({ pubsub, entry }) => {
 function handleAppExit(options, err) {
   if (err) {
     console.error("App exited due to error", err);
-    client.publish("app/error", err);
+    transport.publish("app/error", err);
   }
   if (options.cleanup) {
-    client.publish("mail/connected", false);
+    transport.publish("mail/connected", false);
   }
   if (options.exit) {
     process.exit();
