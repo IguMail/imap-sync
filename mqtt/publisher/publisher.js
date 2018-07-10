@@ -306,16 +306,17 @@ mailEmitter.on('mail/saved', ({ pubsub, entry }) => {
  * Want to notify client that mail is disconnected before shutting down
  */
 function handleAppExit(options, err) {
-  if (err) {
-    console.error("App exited due to error", err);
-    transport.publish("app/error", err);
-  }
-  if (options.cleanup) {
-    transport.publish("mail/connected", false);
-  }
-  if (options.exit) {
-    process.exit();
-  }
-
+  try {
+    if (err) {
+      console.error("App exited due to error", err)
+      transport.publish("app/error", err)
+    }
+    if (options.cleanup) {
+      transport.publish("mail/connected", false)
+    }
+    if (options.exit) {
+      process.exit();
+    }
+  } catch(e) { /* ignore fails */ }
 }
 require('../../lib/processOnExit')(handleAppExit)
